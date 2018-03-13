@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="msapplication-tap-highlight" content="no" />
+  <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!--
+  <meta http-equiv="Content-Security-Policy" content="default-src * gap://ready file:; style-src 'self' 'unsafe-inline' *; script-src 'self' 'unsafe-inline' 'unsafe-eval' *; img-src * data: 'unsafe-inline' gap: 'unsafe-eval' *; child-src * gap://ready">
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * gap://ready file:; style-src 'self' 'unsafe-inline' *; script-src 'self' 'unsafe-inline' 'unsafe-eval' *; img-src * data: 'unsafe-inline' gap: 'unsafe-eval' *; child-src * gap://ready">  
+  
+  <title>DEVICE Tester2</title>
+
+  <script type="text/javascript" src="cordova.js"></script>
+  <script type="text/javascript" src="js/jsLib/framework7.min.js"></script>
+  <script type="text/javascript" src="js/jsLib/bluebird.min.js"></script>
+  <link rel="stylesheet" href="css/framework7.ios.css">
+  <!-- Path to your custom app styles-->
+  <link rel="stylesheet" type="text/css" href="css/index.css" />
+  <link rel="stylesheet" href="css/my-app.css">
+
+</head>
+
+<body>
+  
+  <div class="statusbar-overlay" style="background-color: none;"></div>
+
+  <div class="views">
+    <div class="view view-main">
+      <!-- Navbar Control -->
+      <div class="navbar no-border">
+        <!-- index page navbar -->
+        <div class="navbar-inner" data-page="index">
+          <div class="left"></div>
+          <div class="center sliding" style="font-size: 4.5vw; font-weight: 700;">DEVICE TESTER 2</div>
+          <div class="right" id="Navbar_rightButton">Options</div>
+        </div>
+      </div>
+      <!-- Pages -->
+      <div class="pages navbar-through">
+        <!-- index page -->
+        <div class="page" data-page="index">  <!-- ng-controller="indexSkinTypeQuestion" -->
+          <div class="page-content" style="-webkit-overflow-scrolling: touch; overflow-x: hidden;">
+            <!-- All tabs -->
+            <div class="tabs">  
+              <!-- Main Tab -->
+              <div class="tab active" id="tab1">
+
+                <div class="content-block" style="margin-top: 5%; width: 100%;">
+
+                	<div class="row" style="font-size: 3.5vw; margin-top: 5%;">
+                		<div class="col-50 button button-fill" id="BLE-notificationOn">Notification</div>
+                  	<div class="col-50 button button-fill" id="datalog_open">Datalog</div>
+                	</div>
+                
+                  <div class="row" style="font-size: 4vw; margin-top: 5%;">
+                  	<div class="col-25" style="display: flex; align-items: center; justify-content: center;">Skin: </div>
+                    <div class="col-25 button button-fill skintypeSelection">0</div>
+                    <div class="col-25" style="display: flex; align-items: center; justify-content: center;">Env: </div>
+                    <div class="col-25 button button-fill environmentSelection">0</div>
+                  </div>
+               
+                  <div style="margin-top: 5%;">TTB Tester: <span id="ttb_result" style="color: blue;"></span><span id="ttb_whatIsWritten" style="color: green;"></span></div>
+                  
+                  <div class="row">
+                    <div class="col-40 button button-fill" style="background-color: white;">
+                      <input type="text" placeholder="Write value..." name="inputTime" style="height: 100%; width: 100%; background-color: transparent; color: black; border: none;">  
+                    </div>
+                    <div class="col-40 button button-fill writeTTBBtn">Write TTB</div>
+                    <div class="col-20" id="TTB_actionButton" style="text-align: center;"> 
+                      <img src="img/wifi-signal-waves.svg" height="25" width="25">
+                    </div>
+                  </div>
+
+                  <div style="margin-top: 3%;">Subscription: <span id="subscription-time" style="color: green; font-size: 4vw;"></span></div>
+                  <div id="subscription-data" style="overflow-y: auto; height: 150px; border: solid 2px green; font-size: 3vw;">
+              
+                  </div>
+
+                </div>
+
+                <div class="content-block">
+                  <div id="BLE-Status" style="font-size: 4vw;">Start...</div>
+                </div>
+
+              </div>
+              <!-- Writing bytes Tab -->
+              <div class="tab" id="tab2">
+                <div class="content-block">
+                  <div class="row" style="font-size: 4vw; margin-top: 5%;">
+                    <div class="col-50">Service</div>
+                    <div class="col-50">Characteristic</div>
+                  </div>
+                  <div class="row" style="font-size: 4vw; margin-top: 5%;">
+                    <div class="col-50 button button-fill" style="background-color: white;">
+                      <input type="text" placeholder="Service" name="byteService" style="background-color: transparent; color: black; border: none;">
+                    </div>
+                    <div class="col-50 button button-fill" style="background-color: white;">
+                      <input type="text" placeholder="Characteristic" name="byteCharacteristic" style="background-color: transparent; color: black; border: none;">
+                    </div>
+                  </div>
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="0" name="byteElement0" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="1" name="byteElement1" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="2" name="byteElement2" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="3" name="byteElement3" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="4" name="byteElement4" style="background-color: transparent; color: black; border: none;"></div>
+                  </div>
+
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="5" name="byteElement5" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="6" name="byteElement6" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="7" name="byteElement7" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="8" name="byteElement8" style="background-color: transparent; color: black; border: none;"></div>
+                    <div class="col-20 button button-fill" style="background-color: white;"><input type="text" placeholder="9" name="byteElement9" style="background-color: transparent; color: black; border: none;"></div>
+                  </div>
+
+                  <div class="button button-fill" id="bytesSaveButton" style="font-size: 4vw; margin-top: 20px;">Save current Service / Char</div>
+                  <div class="button button-fill" id="bytesLoadButton" style="font-size: 4vw; margin-top: 15px;">Load saved Service / Char</div>
+                  <div class="button button-fill" id="bytesClearButton" style="font-size: 4vw; margin-top: 15px;">Clear Array</div>
+                  <div class="button button-fill" id="bytesSendButton" style="font-size: 4vw; margin-top: 15px;">Submit</div>
+
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-33 button button-fill" id="send4Button" style="font-size: 4vw; margin-top: 5%;">4</div>
+                    <div class="col-33 button button-fill" id="send5Button" style="font-size: 4vw; margin-top: 5%;">5</div>
+                    <div class="col-33 button button-fill" id="send6Button" style="font-size: 4vw; margin-top: 5%;">6</div>
+                  </div>
+
+                </div>
+              </div>
+              <!-- Writing to change UV value Tab -->
+              <div class="tab" id="tab3">
+                <div class="content-block">
+
+                  <div class="uvDisplayValue" style="margin-top: 5%; width: 100%;"></div>
+                  <div class="uvCurrentValue" style="margin-top: 5%; width: 100%;">UV Selected: </div>
+
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-20 button button-fill uvBtn_0">0</div>
+                    <div class="col-20 button button-fill uvBtn_1">1</div>
+                    <div class="col-20 button button-fill uvBtn_2">2</div>
+                    <div class="col-20 button button-fill uvBtn_3">3</div>
+                    <div class="col-20 button button-fill uvBtn_4">4</div>
+                  </div>
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-20 button button-fill uvBtn_5">5</div>
+                    <div class="col-20 button button-fill uvBtn_6">6</div>
+                    <div class="col-20 button button-fill uvBtn_7">7</div>
+                    <div class="col-20 button button-fill uvBtn_8">8</div>
+                    <div class="col-20 button button-fill uvBtn_9">9</div>
+                  </div>
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-20 button button-fill uvBtn_10">10</div>
+                    <div class="col-20 button button-fill uvBtn_11">11</div>
+                    <div class="col-20 button button-fill uvBtn_12">12</div>
+                    <div class="col-40 button button-fill uvBtn_13">Random</div>
+                  </div>
+                  <div class="row" style="margin-top: 5%;">
+                    <div class="col-100 button button-fill uvBtn_real">Measure from Device</div>
+                  </div>
+                </div>
+
+              </div>
+              <!-- Jan.18.2018 - Testing Tab -->
+              <div class="tab" id="tab4">
+                <div class="content-block">
+
+                  <div class="row" style="font-size: 4vw; margin-top: 5%;">
+                    <div class="col-40">Device Status: </div>
+                    <div class="col-60" id="tester_deviceStatus">Disconnected</div>
+                  </div>
+
+                  <div style="font-size: 4vw; color: red;">Battery Tester</div>
+                  <div class="row" style="font-size: 4vw; margin-top: 5%;">
+                    <div class="col-40">Current Data</div>
+                    <div class="col-60" id="batteryTester_text" style="color: blue;"">Data</div>
+                  </div>
+                  <div class="row" style="font-size: 4vw; margin-top: 2%;">
+                    <div class="col-40">File Status:</div>
+                    <div class="col-60" id="batteryTester_file_status">Stat</div>
+                  </div>
+                  <div class="row" style="font-size: 4vw; margin-top: 2%;">
+                    
+                    <div class="col-50 button button-fill" id="batteryTester_export_file">Data -> File</div>
+                  
+                    <div class="col-50 button button-fill" id="batteryTester_export_email">File -> Email</div>
+                  </div>
+                 
+
+                </div>
+              </div>
+              <!-- Testing Tab ended -->
+            </div>
+            <!-- All tabs end here -->
+          </div>
+        </div>
+        <!-- index page Ends -->
+      </div>
+      <!-- Pages Ended -->
+      <!-- Tabbar -->
+      <div class="toolbar tabbar">
+        <div class="toolbar-inner">
+          <a href="#tab1" class="tab-link active">Main</a>
+          <a href="#tab2" class="tab-link">Bytes</a>
+          <a href="#tab3" class="tab-link">UV</a>
+          <a href="#tab4" class="tab-link">Test</a>
+        </div>
+      </div>
+      <!-- Tabbar ends -->
+    </div>
+  </div>
+
+  <script type="text/javascript" src="js/addresses.js"></script>
+  <script type="text/javascript" src="js/initF7.js"></script>
+  <script type="text/javascript" src="js/eventHandlers/weatherDataHandler.js"></script>
+  <script type="text/javascript" src="js/eventHandlers/appEventHandler.js"></script>
+  <script type="text/javascript" src="js/eventHandlers/clickEventHandler.js"></script>
+  <script type="text/javascript" src="js/eventHandlers/bleEventHandler.js"></script>
+  <script type="text/javascript" src="js/eventHandlers/bleBGEventHandler.js"></script>
+  <script type="text/javascript" src="js/viewHandlers/viewHandlers.js"></script>
+  <script type="text/javascript" src="js/eventHandlers/datalogHandler.js"></script>
+
+  <script type="text/javascript" src="js/index.js"></script>
+</body>
+
+</html>
