@@ -68,10 +68,12 @@ cViewHandler.prototype = {
     t.ble_status_msg('#BLE-Status', '[Total]  =  [Sunscreen]  +  [TTB] ' + '<br>'+ 
                                     ((string1112) ? string1112 : '0') + ' = ' + ((string1120) ? string1120 : '0') + ' + ' + ((string1121) ? string1121 : '0') + '<br>' +
                                     '[UV]: ' + ((char2Val) ? t.dataAnalyzer('Uint8Array', char2Val, 'uv') : 'NULL') + ' [UV 1]: ' + ((char5Val) ? char5Val : 'NULL') + ' [UV 2]: ' + ((char6Val) ? char6Val : 'NULL') + '<br>' +
-                                    '[41]: ' + ((char7Val) ? char7Val : 'NULL') + ' [42]: ' + ((char8Val) ? char8Val : 'NULL') + '<br>' +
+                                    '[41]: ' + ((char7Val) ? char7Val : 'NULL') + ' [42]: ' + ((char8Val) ? char8Val + '(' + t.dataAnalyzer2(((typeof char8Val === 'number') ? [char8Val] : char8Val)) + ')' : 'NULL') + '<br>' +
                                     '[Temp]: ' + ((char9Val) ? char9Val : 'NULL') + ' [Battery]: ' + ((char11Val) ? char11Val : 'NULL') + ' [V]: ' + ((char12Val) ? char12Val : 'NULL') + '<br>' +
                                     '[1123]: ' + ((char13Val) ? char13Val : 'NULL') + ' [S]: ' + ((char14Val) ? char14Val : 'NULL') + '<br>' + 
-                                    '[TTB1]: ' + ((char15Val) ? char15Val : 'NULL') + ' [TTB2]: ' + ((char16Val) ? char16Val : 'NULL') + ' [TTBD1]: ' + ((char17Val) ? char17Val : 'NULL'));
+                                    '[TTB1]: ' + ((char15Val) ? char15Val : 'NULL') + 
+                                    ' [TTB2]: ' + ((char16Val) ? char16Val : 'NULL') + 
+                                    ' [TTBD1]: ' + ((char17Val) ? char17Val : 'NULL'));
 
     
     $$('#ttb_result').html(string1112);
@@ -101,11 +103,11 @@ cViewHandler.prototype = {
       tempNegativeHex = tempNegativeHex - 0x10000;
       //var negativeHex = (tempNegativeHex / 100).toFixed(1);
       //if(negativeHex == -0.0) negativeHex = 0.0;          // July.12.2017 - We don't want '-0.0'
-      return beforeHex + ' -> ' + tempNegativeHex;
+      return beforeHex; //+ ' -> ' + tempNegativeHex;
     } else {
       //newHexString = hexString1 + hexString2;
       //return (parseInt(newHexString, 16) / 100).toFixed(1);
-      return beforeHex + ' -> ' + tempNegativeHex;
+      return beforeHex; //+ ' -> ' + tempNegativeHex;
     }
 
   },
@@ -290,7 +292,7 @@ cViewHandler.prototype = {
 
   display_subscription: function (dataObjArray) {
     
-    var data0, data1, data2, data3, data4;
+    var data0, data1, data2, data3, data4, data5;
 
     dataObjArray.map(function(el){
       switch(el.id) {
@@ -299,6 +301,7 @@ cViewHandler.prototype = {
         case 2: data2 = el.data; break;
         case 3: data3 = el.data; break;
         case 4: data4 = el.data; break;
+        case 5: data5 = el.data; break;
       }
     });
 
