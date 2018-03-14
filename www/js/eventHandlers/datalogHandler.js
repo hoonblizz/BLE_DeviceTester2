@@ -255,7 +255,7 @@ cDatalogHandler.prototype = {
 		return csvContent;
 	},
 
-	createCSVDataString_datalog: function () {
+	createCSVDataString_datalog_real: function () {
 
 		var t = this;
 
@@ -267,18 +267,35 @@ cDatalogHandler.prototype = {
 		var prevTime = ((realDataArr.length > 0) ? realDataArr[0].prevTime : 0);
     var notificationFiredTime = callBleEventHandler.notificationDataCollectedTime;
 
-    // index
-    /*
-    csvContent += ('Calculated Time' + ',' + 'Time(s)' + ',' + 'UV' + ',' + 'Temperature' + ',' + 'Voltage' + ',' + 'Sunscreen' + ',' + 'Current Time' + ',' + 'Previous Time' + 'Data Size' + '\n');
-
-		realDataArr.map(function(element){
-			csvContent += (new Date(element.timeInEpoch) + ',' + element.time + ',' + element.uv + ',' + element.temp + ',' + element.voltage + ',' + element.ssOn + ',' + new Date(notificationFiredTime) + ',' + new Date(prevTime) + ',' + realDataArr.length + '\n');	// \r\n
-		});
-		*/
 		csvContent += ('Calculated Time' + ',' + 'Time(s)' + ',' + 'UV' + ',' + 'TotalTTB' + ',' + 'ActiveLED' + ',' + 'Sunscreen' + ',' + 'Current Time' + ',' + 'Previous Time' + ',' + 'Data Size' + '\n');
 
 		realDataArr.map(function(element){
 			csvContent += (new Date(element.timeInEpoch) + ',' + element.time + ',' + element.uv + ',' + element.voltage + ',' + element.temp + ',' + element.ssOn + ',' + new Date(notificationFiredTime) + ',' + new Date(prevTime) + ',' + realDataArr.length + '\n');	// \r\n
+		});
+
+		var t2 = performance.now();
+
+		console.log('\nCSV created [' + parseInt(t2 - t1) + ' ms]: \n' + csvContent);
+
+		return csvContent;
+	},
+
+	createCSVDataString_datalog_raw: function () {
+
+		var t = this;
+
+		var t1 = performance.now();
+
+		var csvContent = '';//"data:text/csv;charset=utf-8,";
+		var rawDataArr = callBleEventHandler.notificationDataCollected;
+
+		var prevTime = ((rawDataArr.length > 0) ? rawDataArr[0].prevTime : 0);
+    var notificationFiredTime = callBleEventHandler.notificationDataCollectedTime;
+
+		csvContent += ('Time(s)' + ',' + 'UV' + ',' + 'ActiveLED' + ',' + 'TotalTTB' + ',' + 'Sunscreen' + ',' + 'Current Time' + ',' + 'Previous Time' + ',' + 'Data Size' + '\n');
+
+		rawDataArr.map(function(element){
+			csvContent += (element.time + ',' + element.uv + ',' + element.temp + ','+ element.voltage + ',' + element.ssOn + ',' + new Date(notificationFiredTime) + ',' + new Date(prevTime) + ',' + rawDataArr.length + '\n');	// \r\n
 		});
 
 		var t2 = performance.now();

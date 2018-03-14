@@ -85,6 +85,7 @@ function cBleEventHandler() {
 	// DataLog export
 	this.createCSVDataString_fileName = dVar.createCSVDataString_fileName;
 	this.createCSVDataString_emailTo = dVar.createCSVDataString_emailTo;
+	this.createCSVDataString_raw_fileName = dVar.createCSVDataString_raw_fileName;
 
 	// Interval that checks how long it takes to connect
 	this.connectionWaitingInterval = 0;

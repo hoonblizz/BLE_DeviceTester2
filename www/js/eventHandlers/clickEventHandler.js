@@ -243,27 +243,38 @@ cClickEventHandler.prototype = {
 	},
 
 	init_datalog: function () {
+
+		function datalogEmpty() {
+			myApp.modal({
+	      title: 'Datalog Required!',
+	      text: '',
+	      verticalButtons: true,
+	      buttons: [{
+	        text: 'Ok'
+	      }]
+	    }); 
+		}
+
 		$$('#notification-display-raw').on('click', function (e) {
       callViewHandler.display_datalog_rawData(callBleEventHandler.notificationDataCollected);
     });
     $$('#notification-display-real').on('click', function (e) {
       callViewHandler.display_datalog_realData(callBleEventHandler.notificationDataAnalyzed);
     });
-    $$('#notification-datalog-export').on('click', function (e) {
+    $$('#notification-datalog-export-real').on('click', function (e) {
     	if(callBleEventHandler.notificationDataAnalyzed.length > 0) {
 
-    		callDatalogHandler.createCSVFile_export(callBleEventHandler.createCSVDataString_fileName, callDatalogHandler.createCSVDataString_datalog(), 'QSun Datalog Export');
+    		callDatalogHandler.createCSVFile_export(callBleEventHandler.createCSVDataString_fileName, callDatalogHandler.createCSVDataString_datalog_real(), 'QSun Datalog Export - Real');
     	
-    	} else {
-    		myApp.modal({
-		      title: 'Datalog Required!',
-		      text: '',
-		      verticalButtons: true,
-		      buttons: [{
-		        text: 'Ok'
-		      }]
-		    }); 
-    	}
+    	} else datalogEmpty();
+    	
+    });
+    $$('#notification-datalog-export-raw').on('click', function (e) {
+    	if(callBleEventHandler.notificationDataCollected.length > 0) {
+
+    		callDatalogHandler.createCSVFile_export(callBleEventHandler.createCSVDataString_raw_fileName, callDatalogHandler.createCSVDataString_datalog_raw(), 'QSun Datalog Export - Raw');
+    	
+    	} else datalogEmpty();
     	
     });
 	},

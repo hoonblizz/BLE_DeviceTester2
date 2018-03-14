@@ -171,7 +171,10 @@ cViewHandler.prototype = {
               '<div class="col-50 button button-fill" id="notification-display-real" style="font-size: 4.5vw;">Real</div>'+
               '<div class="col-50 button button-fill" id="notification-display-raw" style="font-size: 4.5vw;">Raw</div>'+
             '</div>'+
-            '<div class="button button-fill" id="notification-datalog-export" style="font-size: 4.5vw; margin-top: 5%;">Export</div>'+
+            '<div class="row" style="margin-top: 5%;">'+
+              '<div class="col-50 button button-fill" id="notification-datalog-export-real" style="font-size: 4.5vw;">Export Real</div>'+
+              '<div class="col-50 button button-fill" id="notification-datalog-export-raw" style="font-size: 4.5vw;">Export Raw</div>'+
+            '</div>'+
           '</div>'+ 
           '<div class="content-block" id="notification-list" style="margin-top: 5%; -webkit-overflow-scrolling: touch;">' + 
             allDataHTML +
