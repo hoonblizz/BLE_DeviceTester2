@@ -40,11 +40,28 @@ cClickEventHandler.prototype = {
 	      }
 	    },
 	    {
-	      text: 'Delete Address',
+	      text: 'Reset and Connect',
 	      onClick: function () {
-	      	//callBleEventHandler.disconnectDevice()
+
+	      	var waitingTime = 1000;
+
 	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address deleted: ' + localStorage["deviceMacAddress"]);
-	        localStorage["deviceMacAddress"] = '';
+	      	localStorage["deviceMacAddress"] = '';
+
+	      	if(callBleEventHandler.targetDeviceObj) {
+	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
+	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+	      			waitingTime = 3000;
+	      		}
+	      	}
+	      	myApp.showPreloader('Please wait...');
+
+	      	setTimeout(() => {
+	      		myApp.hidePreloader();
+	      		callBleEventHandler.startBLEProcess();
+	      	}, waitingTime);
+	        
+	        
 	      }
 	    },
 	    {
@@ -71,6 +88,7 @@ cClickEventHandler.prototype = {
 	    {
 	      text: 'Disconnect',
 	      onClick: function () {
+	      	evothings.ble.stopScan();
 	        if(callBleEventHandler.targetDeviceObj) {
 						
 	        	// Clear intervals if needed
@@ -84,7 +102,7 @@ cClickEventHandler.prototype = {
 	      }
 	    },
 	    {
-	      text: 'Connect',
+	      text: 'Scan and Connect',
 	      onClick: function () {
 	        //callBleEventHandler.startScanning();
 	        callBleEventHandler.startBLEProcess();

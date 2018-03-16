@@ -84,6 +84,7 @@ function onDeviceReady(){
     appBGFG = 7;
     clearInterval(callBleEventHandler.readRealtimeIntervalID);  // clear realtime in foreground
     clearInterval(callBleEventHandler.subscriptionTestInterval);
+    callBleEventHandler.bgErrorStack = 0;       // Mar.16.2018 - keeps connect / disconnect issue tracker.
 
 		console.log('Background: ' + appBGFG);
 

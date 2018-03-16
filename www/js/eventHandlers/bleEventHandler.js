@@ -41,12 +41,24 @@ function cBleEventHandler() {
 	this.userState = [];
 	this.userStateIndex = {
 		ENTER_PASSWORD: 'ENTER_PASSWORD',
+		ENTER_PASSWORD_DONE: 'ENTER_PASSWORD_DONE',
+		SIGNAL_FG: 'SIGNAL_FG',
+		SIGNAL_FG_DONE: 'SIGNAL_FG_DONE',
+		SIGNAL_BG: 'SIGNAL_BG',
+		SIGNAL_BG_DONE: 'SIGNAL_BG_DONE',
 		WRITING: 'WRITING',
 		WRITE_DONE: 'WRITE_DONE',
 		READING: 'READING',
 		READ_DONE: 'READ_DONE',
 		SUB_DONE: 'SUB_DONE'
 	}
+	
+	// Mar.16.2018 - backgroundError handling
+	// app's default address is not actual default address -> background error happens 
+	// (connects -> disconnects -> repeat)
+	this.bgErrorStack = 0;
+
+	this.scanTimeoutInterval = 0;
 
 	this.scannedDeviceArr = [];
 
@@ -181,7 +193,11 @@ cBleEventHandler.prototype = {
 		// Check to just connect or scan
 		var deviceInfoString = localStorage["deviceMacAddress"];
 
+		t.bgErrorStack = 0;
+
 		this.loadPassword();		// Feb.21.2018 - load password implemented
+
+		evothings.ble.stopScan();
 
 		if(deviceInfoString && deviceInfoString !== '') {	// Device info exists, lets directly connect
 
@@ -239,7 +255,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error while Scanning...');
-	  }, { serviceUUIDs: [t.serviceUUID, t.serviceUUID2] });  
+	  }, { serviceUUIDs: [t.serviceUUID] });  
 
 	},
 
@@ -261,6 +277,8 @@ cBleEventHandler.prototype = {
 	scanDevices: function () {
 
 		var t = this;
+		
+		evothings.ble.stopScan();
 
 		t.scannedDeviceArr = [];		// empty list
 
@@ -289,7 +307,7 @@ cBleEventHandler.prototype = {
 
     }, function(err){
       console.log('Error while Scanning...: ' + err);
-	  }, { serviceUUIDs: [t.serviceUUID, t.serviceUUID2] });  
+	  }, { serviceUUIDs: [t.serviceUUID] });  
 
 	},
 
@@ -297,7 +315,9 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
-		setTimeout(function() {
+		clearTimeout(t.scanTimeoutInterval);
+
+		t.scanTimeoutInterval = setTimeout(function() {
 
 			evothings.ble.stopScan();
 
@@ -346,6 +366,7 @@ cBleEventHandler.prototype = {
 	startBGFetchEvent: function () {
 		var t = this;
 
+		var timeLimit = 60 * 1000;
 		var defaultAddress = JSON.parse(localStorage["deviceMacAddress"]);
 
 		console.log('Scanning Started for BG Fetch... [ ' + defaultAddress.address + ' ]');
@@ -355,7 +376,7 @@ cBleEventHandler.prototype = {
 			evothings.ble.stopScan();
 			BackgroundFetch.finish(); // <---- important!
 			console.log('BG Fetch Scan is timedout and finish called...');
-		}, 20000);
+		}, timeLimit);
 
 		evothings.ble.startScan(function(device) {
 
@@ -373,7 +394,7 @@ cBleEventHandler.prototype = {
 
     }, function(err){
       console.log('Error while Scanning for BG fetch...: ' + err);
-	  }, { serviceUUIDs: [t.serviceUUID, t.serviceUUID2] });
+	  }, { serviceUUIDs: [t.serviceUUID] });
 
 	},
 
@@ -389,12 +410,12 @@ cBleEventHandler.prototype = {
 
 			console.log('\n============================================================' +
 									'\n Connecting to ' + deviceObj.name + '...' +
-									'\nCurrent: ' + deviceObj.address +
+									'\nTarget address: ' + deviceObj.address +
 									'\nDefault: ' + ((localStorage["deviceMacAddress"]) ? JSON.parse(localStorage["deviceMacAddress"]).address : 'DNE') +
 									//'\nActivity Track: ' + t.conState + 
 									'\n============================================================\n');
 
-			callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to ' + deviceObj.name);
+			callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to ' + deviceObj.name + '<br>' + deviceObj.address);
 
 			// Save into Local
 	    if(deviceObj.hasOwnProperty('address'))
@@ -444,15 +465,22 @@ cBleEventHandler.prototype = {
 
 		// Global use
 		t.targetDeviceObj = deviceObj;
-		
+
 		// Save into Local if device info has full list of services and chars
 		// Save it only once!
-		if(!localStorage["deviceMacAddress"] && deviceObj.hasOwnProperty('services'))
+		// Save only when app is on Foreground. 
+		if(!localStorage["deviceMacAddress"] && deviceObj.hasOwnProperty('services')) {
     	localStorage["deviceMacAddress"] = JSON.stringify(deviceObj);		// save entire info of device
+    	myApp.modal({
+        title: 'Default Address Saved!',
+        text: deviceObj.address,
+        buttons: [{text: 'Ok'}]
+      }); 
+		}
     
     console.log('\n============================================================' +
 								'\n Connected!! \n' + t.targetDeviceObj.name + 
-								'\nCurrent: ' + t.targetDeviceObj.address +
+								'\nConnected to: ' + t.targetDeviceObj.address +
 								'\nDefault: ' + ((localStorage["deviceMacAddress"]) ? JSON.parse(localStorage["deviceMacAddress"]).address : 'DNE') +
 								//'\nActivity Track: ' + t.conState + 
 								'\n============================================================\n');
@@ -464,40 +492,8 @@ cBleEventHandler.prototype = {
 		});
 		
 
-		callViewHandler.ble_status_msg('#BLE-Status', deviceObj.name + ' Connected');
+		callViewHandler.ble_status_msg('#BLE-Status', deviceObj.name + ' Connected! ' + '<br>' + deviceObj.address);
 		
-		/*
-		// Order matters: sending password, start subscription, send FG/BG info
-		t.startEnteringPassword();
-
-		// Feb.14.2018 - For testing, initiate subscription
-		// This needs to be before startReset. Needs data from device when connected.
-		t.startSubscription(); 
-
-		t.startReset(appBGFG);	// Let device know app is on BG or FG
-
-		// Mar.09.2018 - For BG, don't even bother writing or reading or subscribing. 
-		// because it'll disconnect right after startReset() success
-		if(appBGFG == 8) {
-
-			// Feb.05.2018 - Saving 'targetDeviceObj' takes time.	
-			setTimeout(function(){
-				// After connection events
-				t.checkFirstTimeSinceBattery();
-				t.writeSecondsUntilMidnight();
-			},1000);
-			
-			setTimeout(function(){
-				// Feb.02.2018 - Seconds of sunrise / sunset
-				t.writeSecondsUntilSunTime();
-			},2000);
-			
-			setTimeout(function(){
-				t.startReadRealtime();
-			},3000);
-			
-		}
-		*/
 		
 		t.initAfterConnected();
 		
@@ -515,7 +511,7 @@ cBleEventHandler.prototype = {
 
 		console.log('**** Connection Error: [ ' + err + ' ]');
 		callViewHandler.ble_status_msg('#BLE-Status', 'Error ' + err);
-		t.androidErrorCounter.push(err);
+		//t.androidErrorCounter.push(err);
 
 		// Error: 8, 19, 22, 133, 257
 		// 8 - BLE_HCI_CONNECTION_TIMEOUT
@@ -523,11 +519,12 @@ cBleEventHandler.prototype = {
 		// 22 - BLE_HCI_LOCAL_HOST_TERMINATED_CONNECTION
 		// 133 - common error caused by multiple reasons
 		// 257 - When this occurs, BLE unable to scan, connect
+		// In this case, when password is not correct, error 19 occurs
 		// Mar.09.2018 - Since we decided to use JobScheduler for Android, 
 		// make complete disconnection. It'll start from scanning every 15 min.
 		// But for error msg 257, reset needed.
 		if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-
+			/*
 			if(t.androidErrorCounter.length > 3) {
 				evothings.ble.reset();
 				setTimeout(() => {
@@ -535,12 +532,15 @@ cBleEventHandler.prototype = {
 					else t.startConnecting(deviceObj);
 				}, 5000)
 			} 
+			*/
+			if(err == 19) {
+				t.disconnectDevice(deviceObj);
+			} else if(err == 133) {
 
-			if(err == 133) {
 				if(appBGFG == 7) t.startBGFetchEvent(deviceObj);
 				else t.startConnecting(deviceObj);
-			}
-			else if(err == 257) {
+
+			} else if(err == 257) {
 
 				evothings.ble.reset();	// Mar.09.2018 - BLE unable to scan or connect in this error. Reset it.
 
@@ -575,7 +575,7 @@ cBleEventHandler.prototype = {
 		var t = this;
 		console.log('\n============================================================' +
 								'\n Disconnected!! ' + deviceObj.name +
-								'\nCurrent: ' + deviceObj.address +
+								'\nDisconnected From: ' + deviceObj.address +
 								'\nDefault: ' + ((localStorage["deviceMacAddress"]) ? JSON.parse(localStorage["deviceMacAddress"]).address : 'DNE') + 
 								//'\nActivity Track: ' + t.conState + 
 								'\n============================================================\n');
@@ -588,14 +588,9 @@ cBleEventHandler.prototype = {
 
 		callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected...');
 
-		// Because it takes time to run realtime and subscription.
-		//
-		setTimeout(function () {
-			clearInterval(t.readRealtimeIntervalID);
-			clearInterval(t.subscriptionTestInterval);
-		}, 3000);
+		clearInterval(t.readRealtimeIntervalID);
+		clearInterval(t.subscriptionTestInterval);
 
-		
 		// Feb.21.2018 - Reconnect only if password was entered correctly
 		// Last thing it did was entering password -> then disconnected -> password wrong. -> don't reconnect
 		// OR
@@ -612,11 +607,14 @@ cBleEventHandler.prototype = {
 		*/
 
 		console.log('\n============================================================' +
+								'\nUser State Length: ' + t.userState.length +
 								'\nLatest User State : [ ' + t.userState[t.userState.length - 1] + ' ]' + 
 								'\nEver READ DONE? [ ' + everWorked + ' ]' +
+								'\nApp on FG / BG: ' + appBGFG +
 								'\n============================================================\n');
 
-		if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.ENTER_PASSWORD || !everWorked)) {
+		// Mar.16.2018 - Dealing more cases
+		if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.ENTER_PASSWORD_DONE) && appBGFG == 8) {
 			
 			t.disconnectDevice(deviceObj);
 
@@ -628,6 +626,35 @@ cBleEventHandler.prototype = {
 	        text: 'Ok'
 	      }]
 	    }); 
+
+		} else if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.SIGNAL_FG_DONE) && appBGFG == 7) {
+
+			// Mar.16.2018 - For Background Error
+			// Because default address is not correct in app, in BG, it keeps connect / disconnect
+			console.log('Background Error Stack Number: ' + t.bgErrorStack);
+
+			t.bgErrorStack++;
+
+			// When  connect - > disconnect keep happening, don't try to connect
+			if(t.bgErrorStack > 2) {
+
+				t.disconnectDevice(deviceObj);
+
+				cordova.plugins.notification.local.schedule({
+					id: 10,
+					title: 'Warning!',
+					text: 'You need to reset both App AND device.'
+				});
+
+				t.bgErrorStack = 0;
+
+			} else {
+				// For ios, we need this. 
+				callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected. Reconnecting...');
+				callViewHandler.display_tester_deviceStatus('Disconnected. Reconnecting...');
+
+				t.wait_then_connect(deviceObj);
+			}
 
 		} else {
 
@@ -742,6 +769,9 @@ cBleEventHandler.prototype = {
 			break;
 			case 'Int16':
 				return new Int16Array(data);
+			break;
+			case 'Int8':
+				return new Int8Array(data);
 			break;
 			case 'Int32':
 				return new Int32Array(data);
@@ -1437,7 +1467,7 @@ cBleEventHandler.prototype = {
 
 	    evothings.ble.enableNotification(t.targetDeviceObj, characteristics2, function(buffer) {
 
-	    	var data = t.dataTranslation(buffer, 'Int32');
+	    	var data = t.dataTranslation(buffer, 'Int8');
 				console.log('[Subscription] 2006 data: ' + data);
 				
 				var argObj = {
@@ -1677,17 +1707,23 @@ cBleEventHandler.prototype = {
 	initAfterConnected: function () {
 		var t = this;
 
+		t.userState.push(t.userStateIndex.ENTER_PASSWORD);
+
 		t.startEnteringPassword()
 		.then(() => {
 			console.log('Writing password Done...');
-    	t.userState.push(t.userStateIndex.ENTER_PASSWORD);
+    	t.userState.push(t.userStateIndex.ENTER_PASSWORD_DONE);
     	callViewHandler.ble_status_msg('#BLE-Status', 'Password entered: ' + t.userPassword);
     	
     	t.startSubscription(); 
+
+    	t.userState.push(t.userStateIndex.SIGNAL_FG);
+
 			return t.startReset(appBGFG);
 		})
 		.then(() => {
 			console.log('Writing FG/BG Done...');
+			t.userState.push(t.userStateIndex.SIGNAL_FG_DONE);
     	callViewHandler.ble_status_msg('#BLE-Status', 'Writing FG/BG Done');
 
 			if(appBGFG == 8) return t.writeSecondsUntilMidnight();
