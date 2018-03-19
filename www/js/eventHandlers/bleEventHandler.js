@@ -181,6 +181,20 @@ function cBleEventHandler() {
 	// Counts how many errors occur in connection process -> if too many, reset then try
 	this.androidErrorCounter = [];
 
+	// Mar.16.2018 - Display time in app testing
+	this.uv_fromDevice = 0;
+	this.ttb_fromDevice = 0;
+	this.ss_fromDevice = 0;
+
+	// Mar.16.2018 - App timer interval
+	this.appTimerInterval = 0;
+
+	// Mar.19.2018 - Keep track of UV changes
+	// Why? Device Doesn't give me calculated value. Since it's connected, I need to keep track of UV 
+	// and calculate by myself.
+	this.uvTrackerArr = [];
+	this.ttbFactorBy1 = 0;	// Value of TTB when UV 1. Use this factor to calculate when UV changed
+	this.deviceShaken = 0;	// In device, TTB starts counting only when device is shaken. Keep track of it.
 }
 
 cBleEventHandler.prototype = {
@@ -590,6 +604,8 @@ cBleEventHandler.prototype = {
 
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
+		t.uvTrackerArr = [];		// Mar.19.2018 - Calculate TTB 
+		t.ttbFactorBy1 = 0;
 
 		// Feb.21.2018 - Reconnect only if password was entered correctly
 		// Last thing it did was entering password -> then disconnected -> password wrong. -> don't reconnect
@@ -707,6 +723,8 @@ cBleEventHandler.prototype = {
 
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
+		t.uvTrackerArr = [];		// Mar.19.2018 - Calculate TTB 
+		t.ttbFactorBy1 = 0;
 
 		evothings.ble.stopScan();
 		evothings.ble.close(deviceObj);
@@ -1446,151 +1464,189 @@ cBleEventHandler.prototype = {
     var dataObjArrayPrev = [];
     var dataObjArrayCurr = [];
 
+  	// ================================================================================
+  	// UV 
+  	evothings.ble.enableNotification(t.targetDeviceObj, characteristics1, function(buffer) {
 
-    	evothings.ble.enableNotification(t.targetDeviceObj, characteristics1, function(buffer) {
+    	var data = t.dataTranslation(buffer, 'Uint8');
+			console.log('[Subscription] UV data: ' + data);
 
-	    	var data = t.dataTranslation(buffer, 'Uint8');
-				console.log('[Subscription] 2005 data: ' + data);
+			var argObj = {
+				'id': 0,
+				'data': data
+			}
 
-				var argObj = {
-					'id': 0,
-					'data': data
+			dataObjArrayCurr.push(argObj);
+
+			t.uv_fromDevice = parseInt(data / 10);
+
+			// Compare with previous UV then decide whether to recalculate or not
+			t.uvTrackerArr.push(t.uv_fromDevice);
+
+			if(t.uvTrackerArr.length > 1) {
+
+				// If value changed, recalculate based on TTB factor
+				// Previous UV value must be gt 0.
+				/*
+				var ubGT0Arr = t.uvTrackerArr.filter((el) => {
+					return el > 0;
+				});
+				var prevVal = (ubGT0Arr.length > 0) ? ubGT0Arr[ubGT0Arr.length - 1] : 0; // Last element of filtered array
+				*/
+				var prevVal = t.uvTrackerArr[t.uvTrackerArr.length - 2];
+				var currVal = t.uvTrackerArr[t.uvTrackerArr.length - 1];
+				if(prevVal !== currVal && t.ttb_fromDevice > 0 && currVal > 0) {
+					t.ttb_fromDevice = parseInt(t.ttbFactorBy1 / currVal);
 				}
 
-				dataObjArrayCurr.push(argObj);
-				
-				//allDataColected(argObj);
-				
-			}, function(err){
-	      console.log('Error in subscription characteristics1: ' + err);
-	    });
 
-	    evothings.ble.enableNotification(t.targetDeviceObj, characteristics2, function(buffer) {
+			}
+			
+			//allDataColected(argObj);
+			
+		}, function(err){
+      console.log('Error in subscription characteristics1: ' + err);
+    });
+  	
+  	// ================================================================================
+  	// Temp
+    evothings.ble.enableNotification(t.targetDeviceObj, characteristics2, function(buffer) {
 
-	    	var data = t.dataTranslation(buffer, 'Int8');
-				console.log('[Subscription] 2006 data: ' + data);
-				
-				var argObj = {
-					'id': 1,
-					'data': data
-				}
-				
-				dataObjArrayCurr.push(argObj);
+    	var data = t.dataTranslation(buffer, 'Int8');
+			console.log('[Subscription] Temp data: ' + data);
+			
+			var argObj = {
+				'id': 1,
+				'data': data
+			}
+			
+			dataObjArrayCurr.push(argObj);
 
-				//allDataColected(argObj);
+			//allDataColected(argObj);
 
-			}, function(err){
-	      console.log('Error in subscription characteristics2: ' + err);
-	    });
+		}, function(err){
+      console.log('Error in subscription characteristics2: ' + err);
+    });
 
-	    evothings.ble.enableNotification(t.targetDeviceObj, characteristics3, function(buffer) {
-	    	var data = t.dataTranslation(buffer, 'Uint32');
-				console.log('[Subscription] 2007 data: ' + data);
-				
-				var argObj = {
-					'id': 2,
-					'data': data
-				}
+    // ================================================================================
+    // Battery
+    evothings.ble.enableNotification(t.targetDeviceObj, characteristics3, function(buffer) {
+    	var data = t.dataTranslation(buffer, 'Uint32');
+			console.log('[Subscription] Battery data: ' + data);
+			
+			var argObj = {
+				'id': 2,
+				'data': data
+			}
 
-				dataObjArrayCurr.push(argObj);
-				
-				//allDataColected(argObj);
+			dataObjArrayCurr.push(argObj);
+			
+			//allDataColected(argObj);
 
-			}, function(err){
-	      console.log('Error in subscription characteristics3: ' + err);
-	    });
+		}, function(err){
+      console.log('Error in subscription characteristics3: ' + err);
+    });
 
-	    evothings.ble.enableNotification(t.targetDeviceObj, characteristics4, function(buffer) {
-	    	var data = t.dataTranslation(buffer, 'Uint32');
-				console.log('[Subscription] 2008 data: ' + data);
-				
-				var argObj = {
-					'id': 3,
-					'data': data
-				}
+    // ================================================================================
+    // TTB
+    evothings.ble.enableNotification(t.targetDeviceObj, characteristics4, function(buffer) {
+    	var data = t.dataTranslation(buffer, 'Uint32');
+			console.log('[Subscription] TTB data: ' + data);
+			
+			var argObj = {
+				'id': 3,
+				'data': data
+			}
 
-				dataObjArrayCurr.push(argObj);
+			dataObjArrayCurr.push(argObj);
 
-				// Mar.06.2018 - This is TTB data. Update Local notification if needed
-				var id = 99;
-				var now = new Date().getTime(),
-    				sec_from_now = new Date(now + (data * 1000));
+			t.ttb_fromDevice = data;
 
-				if(data < 50000) {	// TTB > 0  and app in BG
-					
-					cordova.plugins.notification.local.clear(id, function() {
+			// Recalculate factor based on latest uv > 0
+			var uvGT0_arr = t.uvTrackerArr.filter((el) => {
+				return el > 0;
+			});
 
-						cordova.plugins.notification.local.schedule({
-				      id: id,
-				      trigger: {
-				      	at: sec_from_now
-				      },
-				      title: 'Device tester',
-				      text: 'TTB is Over: ' + data + ' s' + '. Preset from App'
-					  });
-					  console.log(id + ': Notification Created -> ' + data + ' s');
+			//console.log('UV Track Array: ' + t.uvTrackerArr + '\nFiltered Array: ' + uvGT0_arr);
 
-					});
+			t.ttbFactorBy1 = (uvGT0_arr.length > 0 && uvGT0_arr[uvGT0_arr.length - 1] > 0) ? parseInt(data / uvGT0_arr[uvGT0_arr.length - 1]) : data;
 
-				} else {
-					console.log('3: Data updated => ' + data + ', App is in ' + appBGFG);
+			console.log('[Subscription] Updated TTB data: ' + data + ', TTB (UV 1) value is ' + t.ttbFactorBy1);
+			
 
-					cordova.plugins.notification.local.clear(id, function() {
+			// Mar.06.2018 - This is TTB data. Update Local notification if needed
+			var id = 99;
+			var now = new Date().getTime(),
+  				sec_from_now = new Date(now + (data * 1000));
 
-						sec_from_now = new Date(now + (2 * 1000));
+			if(data < 50000) {	// TTB > 0  and app in BG
+				// Mar.16.2018 - We don't want preset from app for notification. 
+			} else {
+				console.log('3: Data updated => ' + data + ', App is in ' + appBGFG);
 
-						cordova.plugins.notification.local.schedule({
-				      id: id,
-				      trigger: {
-				      	at: sec_from_now
-				      },
-				      title: 'Device tester',
-				      text: 'TTB is Over. Data from Device'
-					  });
-					  console.log(id + ': Notification Created -> ' + data + ' s');
+				clearInterval(t.appTimerInterval);		// Stop Timer
 
-					});
-				}
+				cordova.plugins.notification.local.clear(id, function() {
 
-				//allDataColected(argObj);
+					sec_from_now = new Date(now + (1 * 1000));
 
-			}, function(err){
-	      console.log('Error in subscription characteristics4: ' + err);
-	    });
+					cordova.plugins.notification.local.schedule({
+			      id: id,
+			      trigger: {
+			      	at: sec_from_now
+			      },
+			      title: 'Device tester',
+			      text: 'TTB is Over. Data from Device'
+				  });
+				  console.log(id + ': Notification Created -> ' + data + ' s');
 
-	    evothings.ble.enableNotification(t.targetDeviceObj, characteristics5, function(buffer) {
-	    	var data = t.dataTranslation(buffer, 'Uint32');
-				console.log('[Subscription] 2009 data: ' + data);
-				
-				var argObj = {
-					'id': 4,
-					'data': data
-				}
-				
-				dataObjArrayCurr.push(argObj);
+				});
+			}
 
-				//allDataColected(argObj);
+			//allDataColected(argObj);
 
-			}, function(err){
-	      console.log('Error in subscription characteristics5: ' + err);
-	    });
+		}, function(err){
+      console.log('Error in subscription characteristics4: ' + err);
+    });
 
-	    evothings.ble.enableNotification(t.targetDeviceObj, characteristics6, function(buffer) {
-	    	var data = t.dataTranslation(buffer, 'Uint8');
-				console.log('[Subscription] First Time since battery data: ' + data);
-				
-				var argObj = {
-					'id': 5,
-					'data': data
-				}
-				
-				dataObjArrayCurr.push(argObj);
+    // ================================================================================
+    // Sunscreen
+    evothings.ble.enableNotification(t.targetDeviceObj, characteristics5, function(buffer) {
+    	var data = t.dataTranslation(buffer, 'Uint32');
+			console.log('[Subscription] SS data: ' + data);
+			
+			var argObj = {
+				'id': 4,
+				'data': data
+			}
+			
+			dataObjArrayCurr.push(argObj);
 
-				//allDataColected(argObj);
+			t.ss_fromDevice = data;
 
-			}, function(err){
-	      console.log('Error in subscription characteristics6: ' + err);
-	    });
+			//allDataColected(argObj);
+
+		}, function(err){
+      console.log('Error in subscription characteristics5: ' + err);
+    });
+
+    // ================================================================================
+    evothings.ble.enableNotification(t.targetDeviceObj, characteristics6, function(buffer) {
+    	var data = t.dataTranslation(buffer, 'Uint8');
+			console.log('[Subscription] First Time since battery data: ' + data);
+			
+			var argObj = {
+				'id': 5,
+				'data': data
+			}
+			
+			dataObjArrayCurr.push(argObj);
+
+			//allDataColected(argObj);
+
+		}, function(err){
+      console.log('Error in subscription characteristics6: ' + err);
+    });
 
 
 
@@ -1726,7 +1782,10 @@ cBleEventHandler.prototype = {
 			t.userState.push(t.userStateIndex.SIGNAL_FG_DONE);
     	callViewHandler.ble_status_msg('#BLE-Status', 'Writing FG/BG Done');
 
-			if(appBGFG == 8) return t.writeSecondsUntilMidnight();
+			if(appBGFG == 8) {
+				t.runAppTimer();		// Mar.16.2018 - Start Timer
+				return t.writeSecondsUntilMidnight();
+			}
 			else return true;
 		})
 		.then(() => {
@@ -1774,6 +1833,29 @@ cBleEventHandler.prototype = {
     	console.log('Error: ' + err);
     	callViewHandler.ble_status_msg('#BLE-Status', err);
     });
+
+	},
+
+	runAppTimer: function () {
+
+		var t = this;
+
+		clearInterval(t.appTimerInterval);
+
+		t.appTimerInterval = setInterval(() => {
+
+			// Check updates then count down. SS first, then TTB
+	
+			if(t.ss_fromDevice > 0) {
+				t.ss_fromDevice--;
+			} else {
+				if(t.uv_fromDevice > 0 && t.ttb_fromDevice > 0) t.ttb_fromDevice--;
+			}
+			 
+
+			callViewHandler.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
+
+		}, 1000);	
 
 	}
 

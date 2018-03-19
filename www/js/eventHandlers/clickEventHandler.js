@@ -112,6 +112,27 @@ cClickEventHandler.prototype = {
 	    myApp.actions(buttons);
 	  });
 
+
+	  $$('#Navbar_leftButton').on('click', function (e) {
+	  	var buttons = [
+	    {
+	      text: 'Display Datalog',
+	      onClick: function () {
+	      	callDatalogHandler.start_datalog();
+	      }
+	    },
+	    {
+	      text: 'Download Datalog',
+	      onClick: function () {
+	      	if(callBleEventHandler.targetDeviceObj) {
+			    	callBleEventHandler.startNotification();
+			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	      }
+	    }
+	    ]
+	  	myApp.actions(buttons);
+	  });
+
 	},
 
 	init_main: function () {
@@ -215,7 +236,14 @@ cClickEventHandler.prototype = {
 	      text: 'Reset Sunscreen',
 	      onClick: function () {
 	        if(callBleEventHandler.targetDeviceObj) {
-	        	callBleEventHandler.startReset(2);
+	        	callBleEventHandler.startReset(2)
+	        	.then(() => {
+	        		console.log('Reset SS Done...');
+	        		callBleEventHandler.ss_fromDevice = 0;	// reset in local then update when device sends data.
+	        	})
+	        	.catch((err) => {
+	        		console.log('Error Reset SS: ' + err);
+	        	});
 	        } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    }
@@ -228,18 +256,6 @@ cClickEventHandler.prototype = {
 	    if(callBleEventHandler.targetDeviceObj) {
 	      callBleEventHandler.writeTTB();
 	    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
-	  });
-
-	  $$('#BLE-notificationOn').on('click', function (e) {
-	    if(callBleEventHandler.targetDeviceObj) {
-
-	    	callBleEventHandler.startNotification();
-
-	    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
-	  });
-
-	  $$('#datalog_open').on('click', function (e) {
-	    callDatalogHandler.start_datalog();
 	  });
 
 	  // Jan.10.2018 - For exporting battery data

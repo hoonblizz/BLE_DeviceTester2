@@ -35,7 +35,7 @@
       <div class="navbar no-border">
         <!-- index page navbar -->
         <div class="navbar-inner" data-page="index">
-          <div class="left"></div>
+          <div class="left" id="Navbar_leftButton">Datalog</div>
           <div class="center sliding" style="font-size: 4.5vw; font-weight: 700;">DEVICE TESTER 2</div>
           <div class="right" id="Navbar_rightButton">Options</div>
         </div>
@@ -52,16 +52,11 @@
 
                 <div class="content-block" style="margin-top: 5%; width: 100%;">
 
-                	<div class="row" style="font-size: 3.5vw; margin-top: 5%;">
-                		<div class="col-50 button button-fill" id="BLE-notificationOn">Notification</div>
-                  	<div class="col-50 button button-fill" id="datalog_open">Datalog</div>
-                	</div>
-                
                   <div class="row" style="font-size: 4vw; margin-top: 5%;">
                   	<div class="col-25" style="display: flex; align-items: center; justify-content: center;">Skin: </div>
-                    <div class="col-25 button button-fill skintypeSelection">0</div>
+                    <div class="col-25 button button-fill skintypeSelection" style="height: 50%;">0</div>
                     <div class="col-25" style="display: flex; align-items: center; justify-content: center;">Env: </div>
-                    <div class="col-25 button button-fill environmentSelection">0</div>
+                    <div class="col-25 button button-fill environmentSelection" style="height: 50%;">0</div>
                   </div>
                
                   <div style="margin-top: 5%;">TTB Tester: <span id="ttb_result" style="color: blue;"></span><span id="ttb_whatIsWritten" style="color: green;"></span></div>
@@ -76,8 +71,22 @@
                     </div>
                   </div>
 
-                  <div style="margin-top: 3%;">Subscription: <span id="subscription-time" style="color: green; font-size: 4vw;"></span></div>
-                  <div id="subscription-data" style="overflow-y: auto; height: 150px; border: solid 2px green; font-size: 3vw;">
+                  <!-- Timer in App -->
+                  <div class="row" style="background-color: black; margin-top: 3%; color: yellow; font-size: 5vw;">
+                    <div class="col-50">TTB: <span id="appTimer-ttb" style="padding-left: 10px; padding-right: 5px;"></span></div>
+                    <div class="col-50">SS: <span id="appTimer-ss" style="padding-left: 10px; padding-right: 5px;"></span></div>
+                  </div>
+
+                  <div style="margin-top: 1%;">Subscription: <span id="subscription-time" style="color: green; font-size: 4vw;"></span></div>
+                  <div class="row no-gutter" style="color: blue; font-size: 3.5vw; margin-top: 0; margin-bottom: 0; border: solid 2px green; border-bottom: none;">
+                    <div class="col-auto">UV</div>
+                    <div class="col-auto">TEMP</div>
+                    <div class="col-auto">BATT</div>
+                    <div class="col-auto">TTB</div>
+                    <div class="col-auto">SS</div>
+                    <div class="col-auto">FT?</div>
+                  </div>
+                  <div id="subscription-data" style="overflow-y: auto; height: 120px; border: solid 2px green; font-size: 3vw;">
               
                   </div>
 

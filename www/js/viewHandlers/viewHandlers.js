@@ -57,6 +57,7 @@ cViewHandler.prototype = {
     }
 
     // Testing for negatives
+    /*
     console.log('*** Check for 1123: ' + char13Val + ' -> ' + t.dataAnalyzer2(((typeof char13Val === 'number') ? [char13Val] : char13Val)));
     console.log('*** Check for 1124: ' + char14Val + ' -> ' + t.dataAnalyzer2(((typeof char14Val === 'number') ? [char14Val] : char14Val)));
     console.log('*** Check for 2000: ' + char7Val + ' -> ' + t.dataAnalyzer2(((typeof char7Val === 'number') ? [char7Val] : char7Val)));
@@ -64,6 +65,7 @@ cViewHandler.prototype = {
     console.log('*** Check for 2002: ' + char15Val + ' -> ' + t.dataAnalyzer2(((typeof char15Val === 'number') ? [char15Val] : char15Val)));
     console.log('*** Check for 2003: ' + char16Val + ' -> ' + t.dataAnalyzer2(((typeof char16Val === 'number') ? [char16Val] : char16Val)));
     console.log('*** Check for 2004: ' + char17Val + ' -> ' + t.dataAnalyzer2(((typeof char17Val === 'number') ? [char17Val] : char17Val)));
+    */
 
     t.ble_status_msg('#BLE-Status', '[Total]  =  [Sunscreen]  +  [TTB] ' + '<br>'+ 
                                     ((string1112) ? string1112 : '0') + ' = ' + ((string1120) ? string1120 : '0') + ' + ' + ((string1121) ? string1121 : '0') + '<br>' +
@@ -310,11 +312,12 @@ cViewHandler.prototype = {
 
     HTMLBuilder = '' +
       '<div id="subscription-data-list" class="row no-gutter" style="color: black; font-size: 3.5vw;">'+
-        '<div class="col-20">'+ ((data0) ? data0 : '--') +'</div>'+
-        '<div class="col-20">'+ ((data1) ? data1 : '--') +'</div>'+
-        '<div class="col-20">'+ ((data2) ? data2 : '--') +'</div>'+
-        '<div class="col-20">'+ ((data3) ? data3 : '--') +'</div>'+
-        '<div class="col-20">'+ ((data4) ? data4 : '--') +'</div>'+
+        '<div class="col-auto">'+ ((data0) ? data0 : '--') +'</div>'+ // uv
+        '<div class="col-auto">'+ ((data1) ? data1 : '--') +'</div>'+ // temp
+        '<div class="col-auto">'+ ((data2) ? data2 : '--') +'</div>'+ // battery
+        '<div class="col-auto">'+ ((data3) ? data3 : '--') +'</div>'+ // ttb
+        '<div class="col-auto">'+ ((data4) ? data4 : '--') +'</div>'+ // ss
+        '<div class="col-auto">'+ ((data5) ? data5 : '--') +'</div>'+ // first time since battery
       '</div>';
 
     $$('#subscription-data').prepend(HTMLBuilder);
@@ -322,6 +325,23 @@ cViewHandler.prototype = {
     var d = new Date();
     var a = d.getHours() + ' : ' + d.getMinutes() + ' : ' + d.getSeconds() + ' : ' + d.getMilliseconds();
     $$('#subscription-time').html(a);
+
+  },
+
+  display_appTimer: function (ttb, ss) {
+    var t = this;
+
+    var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
+    if(lastConnectionState === callBleEventHandler.conStateIndex.CONNECTED) {
+
+      var ttb_arr = t.secondsToMinutes(ttb);
+      var ss_arr = t.secondsToMinutes(ss);
+      $$('#appTimer-ttb').html(ttb_arr[0] + ' M ' + ttb_arr[1] + ' S');
+      $$('#appTimer-ss').html(ss_arr[0] + ' M ' + ss_arr[1] + ' S');
+
+    } else {
+      $$('#appTimer-ttb, #appTimer-ss').html('NA');
+    }
 
   }
 
