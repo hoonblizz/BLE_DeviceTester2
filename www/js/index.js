@@ -27,6 +27,9 @@ function onDeviceReady(){
 
   console.log('\n********************\nDevice Ready' + '\n********************\n');
 
+  callBleEventHandler.loadSkinEnv();
+  callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, callBleEventHandler.currentEnvironment);
+  
   // init events
   callClickHandler.init();
 
@@ -39,7 +42,7 @@ function onDeviceReady(){
   document.addEventListener("active", () => {
 
     appBGFG = 8;
-    console.log('Foreground (Active): ' + appBGFG);
+    console.log('Foreground (Active): ' + appBGFG + ', wait_then_connect_interval: ' + callBleEventHandler.wait_then_connect_interval);
 
     var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
@@ -48,9 +51,13 @@ function onDeviceReady(){
     }
 
     callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
-    setTimeout(function () {
-      callBleEventHandler.startBLEProcess();
-    }, 4000);
+
+    // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
+    //if(callBleEventHandler.wait_then_connect_interval == 0) {
+      setTimeout(function () {
+        callBleEventHandler.startBLEProcess();
+      }, 4000);
+    //}
 
   }, false);
 
@@ -59,7 +66,7 @@ function onDeviceReady(){
     setTimeout(function () {
 
       appBGFG = 8;
-      console.log('Foreground (Resume): ' + appBGFG);
+      console.log('Foreground (Resume): ' + appBGFG + ', wait_then_connect_interval: ' + callBleEventHandler.wait_then_connect_interval);
 
       var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
@@ -68,9 +75,13 @@ function onDeviceReady(){
       }
 
       callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
-      setTimeout(function () {
-        callBleEventHandler.startBLEProcess();
-      }, 4000);
+
+      // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
+      //if(callBleEventHandler.wait_then_connect_interval == 0) {
+        setTimeout(function () {
+          callBleEventHandler.startBLEProcess();
+        }, 4000);
+      //}
 
       if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
         BackgroundFetch.stop();
@@ -88,7 +99,6 @@ function onDeviceReady(){
     clearInterval(callBleEventHandler.appTimerInterval); // Mar.16.2018 - Stop App Timer
 
 		console.log('Background: ' + appBGFG);
-
     
     // When Device receives 7, it disconnects. 
     var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 

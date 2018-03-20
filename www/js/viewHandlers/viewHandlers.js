@@ -30,10 +30,11 @@ cViewHandler.prototype = {
     var string1112 = '';
     var string1120 = '';
     var string1121 = '';
-
+    /*
     console.log('\nRaw Data => ' + '1: ' + char1Val[0] + ', 2:' + char2Val + ', 3:' + char3Val[0] + ', 4:' + char4Val[0] + ', 5:' + char5Val 
                 + ', 6:' + char6Val + ', 7:' + char7Val + ', 8:' + char8Val + ', 9:' + char9Val + ', 11:' + char11Val
                 + ', 12:' + char12Val + ', 13:' + char13Val + ', 14:' + char14Val + ', 15:' + char15Val + ', 16:' + char16Val + ', 17:' + char17Val);
+    */
 
     if(char1Val[0]) {
       var arr1112 = t.secondsToMinutes(char1Val[0]);
@@ -295,9 +296,15 @@ cViewHandler.prototype = {
     $$('#tester_deviceStatus').html(statusString);
   },
 
+  // Mar.20.2018 - Change number for skintype and env
+  display_skinEnv: function (skin, env) {
+    $$('.skintypeSelection').html(skin);
+    $$('.environmentSelection').html(env);
+  },  
+
   display_subscription: function (dataObjArray) {
     
-    var data0, data1, data2, data3, data4, data5;
+    var data0, data1, data2, data3, data4, data5, data7;
 
     dataObjArray.map(function(el){
       switch(el.id) {
@@ -307,6 +314,7 @@ cViewHandler.prototype = {
         case 3: data3 = el.data; break;
         case 4: data4 = el.data; break;
         case 5: data5 = el.data; break;
+        case 7: data7 = el.data; break;
       }
     });
 
@@ -318,6 +326,7 @@ cViewHandler.prototype = {
         '<div class="col-auto">'+ ((data3) ? data3 : '--') +'</div>'+ // ttb
         '<div class="col-auto">'+ ((data4) ? data4 : '--') +'</div>'+ // ss
         '<div class="col-auto">'+ ((data5) ? data5 : '--') +'</div>'+ // first time since battery
+        '<div class="col-auto">'+ ((data7) ? data7 : '--') +'</div>'+ // device shaken
       '</div>';
 
     $$('#subscription-data').prepend(HTMLBuilder);
@@ -334,11 +343,18 @@ cViewHandler.prototype = {
     var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
     if(lastConnectionState === callBleEventHandler.conStateIndex.CONNECTED) {
 
-      var ttb_arr = t.secondsToMinutes(ttb);
-      var ss_arr = t.secondsToMinutes(ss);
-      $$('#appTimer-ttb').html(ttb_arr[0] + ' M ' + ttb_arr[1] + ' S');
-      $$('#appTimer-ss').html(ss_arr[0] + ' M ' + ss_arr[1] + ' S');
+      if(callBleEventHandler.checkDeviceCalculate()) console.log('*** [App Timer][From Device]: TTB: ' + ttb + ', SS: ' + ss);
+      else console.log('*** [App Timer][From App]: TTB: ' + ttb + ', SS: ' + ss);
 
+      if(callBleEventHandler.deviceShaken > 0) {
+        var ttb_arr = t.secondsToMinutes(ttb);
+        var ss_arr = t.secondsToMinutes(ss);
+        $$('#appTimer-ttb').html(ttb_arr[0] + ' M ' + ttb_arr[1] + ' S');
+        $$('#appTimer-ss').html(ss_arr[0] + ' M ' + ss_arr[1] + ' S');
+      } else {
+        $$('#appTimer-ttb, #appTimer-ss').html('--');
+      }
+      
     } else {
       $$('#appTimer-ttb, #appTimer-ss').html('NA');
     }

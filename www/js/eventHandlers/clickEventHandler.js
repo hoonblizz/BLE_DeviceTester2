@@ -142,11 +142,25 @@ cClickEventHandler.prototype = {
 			function clickEvent(j) {
         return function() {
 
-          $$('.skintypeSelection').html(j);
+          var prevSkinType = callBleEventHandler.currentSkintype;
 	        callBleEventHandler.currentSkintype = j;
 
 	        if(callBleEventHandler.targetDeviceObj) {
-			      callBleEventHandler.writeTTB();
+	        	// Mar.19.2018 - Recalculate for local TTB display (without device data)
+			      callBleEventHandler.writeTTB()
+			      .then(() => {
+
+			      	callViewHandler.display_skinEnv(j, callBleEventHandler.currentEnvironment);
+			      	callBleEventHandler.saveSkinEnv();
+
+			      	callBleEventHandler.appCalculationNeeded();
+
+			      	callBleEventHandler.initTTBTrackArr.push(callBleEventHandler.getLatestInitTTB());	// will be used to recalculate TTB
+			      	
+			      })
+			      .catch((err) => {
+			      	console.log('Error Writing Skintype: ' + err);
+			      });
 			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	        
         }
@@ -170,12 +184,26 @@ cClickEventHandler.prototype = {
 
 			function clickEvent(j) {
         return function() {
-        	
-          $$('.environmentSelection').html(j);
+
+          var prevEnvironment = callBleEventHandler.currentEnvironment;
 	        callBleEventHandler.currentEnvironment = j;
 
 	        if(callBleEventHandler.targetDeviceObj) {
-			      callBleEventHandler.writeTTB();
+	        	// Mar.19.2018 - Recalculate for local TTB display (without device data)
+			      callBleEventHandler.writeTTB()
+			      .then(() => {
+
+			      	callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, j);
+			      	callBleEventHandler.saveSkinEnv();
+
+			      	callBleEventHandler.appCalculationNeeded();
+
+			      	callBleEventHandler.initTTBTrackArr.push(callBleEventHandler.getLatestInitTTB());	// will be used to recalculate TTB
+			      	
+			      })
+			      .catch((err) => {
+			      	console.log('Error Writing Environment: ' + err);
+			      });
 			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	        
         }
@@ -254,7 +282,13 @@ cClickEventHandler.prototype = {
 
 	  $$('.writeTTBBtn').on('click', function (e) {
 	    if(callBleEventHandler.targetDeviceObj) {
-	      callBleEventHandler.writeTTB();
+	      callBleEventHandler.writeTTB()
+	      .then(() => {
+
+	      })
+	      .catch((err) => {
+	      	console.log('Error Writing TTB: ' + err);
+	      });
 	    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	  });
 

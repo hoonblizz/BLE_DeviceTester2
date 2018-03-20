@@ -171,6 +171,7 @@ function cBleEventHandler() {
 	this.notificationTester_char3 = adds.notificationTester_char3 + this.restUUID;			// Battery
 	this.notificationTester_char4 = adds.notificationTester_char4 + this.restUUID;			// TTB
 	this.notificationTester_char5 = adds.notificationTester_char5 + this.restUUID;			// Sunscreen
+	this.notificationTester_char7 = adds.notificationTester_char7 + this.restUUID;
 
 	// Feb.21.2018 - For custom password
 	this.customPassword_service = adds.customPassword_service + this.restUUID;
@@ -195,6 +196,10 @@ function cBleEventHandler() {
 	this.uvTrackerArr = [];
 	this.ttbFactorBy1 = 0;	// Value of TTB when UV 1. Use this factor to calculate when UV changed
 	this.deviceShaken = 0;	// In device, TTB starts counting only when device is shaken. Keep track of it.
+	// Mar.20.2018 - Keep Track of initial TTB for 'recalculating'
+	// Push when UV / Skin / Environment changes
+	this.initTTBTrackArr = [];
+
 }
 
 cBleEventHandler.prototype = {
@@ -604,6 +609,7 @@ cBleEventHandler.prototype = {
 
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
+		clearInterval(t.appTimerInterval);
 		t.uvTrackerArr = [];		// Mar.19.2018 - Calculate TTB 
 		t.ttbFactorBy1 = 0;
 
@@ -705,6 +711,7 @@ cBleEventHandler.prototype = {
 		// Mar.06.2018 - On BG, start connecting to default address,
 		// on FG, start scan for unlimited time until it finds device or certain conditions are met.
 		t.wait_then_connect_interval = setTimeout(() => {
+			clearTimeout(t.wait_then_connect_interval);
     	if(appBGFG == 7) {
     		t.startConnecting(JSON.parse(localStorage["deviceMacAddress"]));	// try connect to default address <--!!!
     	} else {
@@ -723,6 +730,7 @@ cBleEventHandler.prototype = {
 
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
+		clearInterval(t.appTimerInterval);
 		t.uvTrackerArr = [];		// Mar.19.2018 - Calculate TTB 
 		t.ttbFactorBy1 = 0;
 
@@ -942,13 +950,14 @@ cBleEventHandler.prototype = {
 
 	    if(currentTime < sunriseToday) secondsForSunrise = sunriseToday - midnightEpochYesterday;
 	    else secondsForSunrise = sunriseTomorrow - midnightEpoch;
-	 
+	 		
+	 		console.log('Now: ' + currentTime + ', Sunrise: ' + sunriseToday + ', Sunset: ' + sunsetToday);
 
     } else {
     	console.log('Weather Data Not exist...!!!!!!!');
     }
 
-    console.log('Writing '+ ((whichOne == 0) ? 'Sunrise' : 'Sunset') + ': ' + secondsForSunrise + ', ' + secondsForSunset);
+    console.log('Writing '+ ((whichOne == 0) ? 'Sunrise' : 'Sunset') + ': ' + ((whichOne == 0) ? secondsForSunrise : secondsForSunset));
     
     if(whichOne == 0) {
     	return t.writeValue(characteristics1, new Uint32Array([secondsForSunrise]));
@@ -973,36 +982,12 @@ cBleEventHandler.prototype = {
 
     var inputVal = $$('.content-block').find('input[name="inputTime"]').val();
 
-    var currentEnvironment = t.currentEnvironment;
-    var currentSkintype = t.currentSkintype;
-
     // Get TTB ======================================================
     if(isNaN(inputVal) || !inputVal) {
       // calculate
-      var env,skintype,inputVal;
-      if(currentEnvironment !== undefined && currentSkintype !== undefined) {
+      if(t.currentEnvironment !== undefined && t.currentSkintype !== undefined) {
 
-        switch(currentEnvironment) {
-          case 0: env = 0.15; break;
-          case 1: env = 0.8; break;
-          case 2: env = 0.25; break;
-          case 3: env = 0.4; break;
-          case 4: env = 0.25; break;
-          case 5: env = 0.25; break;
-          default: env = 0.25; break;
-        }
-
-        switch(currentSkintype) {        // in seconds
-          case 0: skintype = 67 * 1; break;
-          case 1: skintype = 100 * 1; break;
-          case 2: skintype = 200 * 1; break;
-          case 3: skintype = 300 * 1; break;
-          case 4: skintype = 400 * 1; break;
-          case 5: skintype = 500 * 1; break;
-          default: skintype = 67 * 1; break;
-        }
-
-        inputVal = (skintype / (1 + env));
+        inputVal = t.calcWriteTTBValue(t.currentSkintype, t.currentEnvironment);
 
       } else {
         inputVal = 60;
@@ -1145,11 +1130,13 @@ cBleEventHandler.prototype = {
 			.then(function(val){
 				char17Val = val;
 				
+				
 				callViewHandler.display_realtimeResult(char1Val, char2Val, char3Val, char4Val,
 																							char5Val, char6Val, char7Val, char8Val, 
 																							char9Val, char11Val, char12Val, char13Val, 
 																							char14Val, char15Val, char16Val, char17Val);
 
+				
 
 				t.batteryTestingData.push({
 					currentTime: currTime,
@@ -1442,6 +1429,7 @@ cBleEventHandler.prototype = {
     var characteristicsAddress4 = t.notificationTester_char4;
     var characteristicsAddress5 = t.notificationTester_char5;
     var characteristicsAddress6 = t.checkFirstTimeSinceBattery_char;  
+    var characteristicsAddress7 = t.notificationTester_char7; 
 
     var service1 = evothings.ble.getService(t.targetDeviceObj, serviceAddress1);
     var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);	// uint8
@@ -1449,9 +1437,8 @@ cBleEventHandler.prototype = {
     var characteristics3 = evothings.ble.getCharacteristic(service1, characteristicsAddress3);	// uint32
     var characteristics4 = evothings.ble.getCharacteristic(service1, characteristicsAddress4);	// uint32
     var characteristics5 = evothings.ble.getCharacteristic(service1, characteristicsAddress5);	// uint32
-
-    // Testing for firstTimeSinceBattery in Subscription
-    var characteristics6 = evothings.ble.getCharacteristic(service1, characteristicsAddress6);
+    var characteristics6 = evothings.ble.getCharacteristic(service1, characteristicsAddress6); // firstTimeSinceBattery
+    var characteristics7 = evothings.ble.getCharacteristic(service1, characteristicsAddress7);
 
     var counter = 0;
 
@@ -1482,27 +1469,23 @@ cBleEventHandler.prototype = {
 
 			// Compare with previous UV then decide whether to recalculate or not
 			t.uvTrackerArr.push(t.uv_fromDevice);
-
+			/*
 			if(t.uvTrackerArr.length > 1) {
 
 				// If value changed, recalculate based on TTB factor
 				// Previous UV value must be gt 0.
-				/*
-				var ubGT0Arr = t.uvTrackerArr.filter((el) => {
-					return el > 0;
-				});
-				var prevVal = (ubGT0Arr.length > 0) ? ubGT0Arr[ubGT0Arr.length - 1] : 0; // Last element of filtered array
-				*/
 				var prevVal = t.uvTrackerArr[t.uvTrackerArr.length - 2];
 				var currVal = t.uvTrackerArr[t.uvTrackerArr.length - 1];
 				if(prevVal !== currVal && t.ttb_fromDevice > 0 && currVal > 0) {
 					t.ttb_fromDevice = parseInt(t.ttbFactorBy1 / currVal);
 				}
 
-
 			}
-			
-			//allDataColected(argObj);
+			*/
+
+			t.appCalculationNeeded();
+
+			t.initTTBTrackArr.push(t.getLatestInitTTB());	// after recalculation is done, stack new initTTB
 			
 		}, function(err){
       console.log('Error in subscription characteristics1: ' + err);
@@ -1562,17 +1545,24 @@ cBleEventHandler.prototype = {
 
 			t.ttb_fromDevice = data;
 
+			// Mar.20.2018 - If this is after SS applied, don't recalculate
+			if(t.ss_fromDevice < 1) t.appCalculationNeeded();
+
+			/*
 			// Recalculate factor based on latest uv > 0
 			var uvGT0_arr = t.uvTrackerArr.filter((el) => {
 				return el > 0;
 			});
 
-			//console.log('UV Track Array: ' + t.uvTrackerArr + '\nFiltered Array: ' + uvGT0_arr);
-
-			t.ttbFactorBy1 = (uvGT0_arr.length > 0 && uvGT0_arr[uvGT0_arr.length - 1] > 0) ? parseInt(data / uvGT0_arr[uvGT0_arr.length - 1]) : data;
-
-			console.log('[Subscription] Updated TTB data: ' + data + ', TTB (UV 1) value is ' + t.ttbFactorBy1);
-			
+			// When SS is on, TTB always shows UV 1 value. <--- important!
+			if(t.ss_fromDevice > 0) {
+				t.ttbFactorBy1 = data;
+				console.log('[Subscription] SS is there. TTB uv1: ' + t.ttbFactorBy1);
+			} else {
+				t.ttbFactorBy1 = (uvGT0_arr.length > 0 && uvGT0_arr[uvGT0_arr.length - 1] > 0) ? parseInt(data * uvGT0_arr[uvGT0_arr.length - 1]) : data;
+				console.log('[Subscription] SS is not there. TTB uv1: ' + t.ttbFactorBy1);
+			}
+			*/
 
 			// Mar.06.2018 - This is TTB data. Update Local notification if needed
 			var id = 99;
@@ -1624,7 +1614,7 @@ cBleEventHandler.prototype = {
 
 			t.ss_fromDevice = data;
 
-			//allDataColected(argObj);
+			//t.appCalculationNeeded();
 
 		}, function(err){
       console.log('Error in subscription characteristics5: ' + err);
@@ -1648,7 +1638,29 @@ cBleEventHandler.prototype = {
       console.log('Error in subscription characteristics6: ' + err);
     });
 
+    // ================================================================================
+    // Device is Active or not (Shaken)
+    evothings.ble.enableNotification(t.targetDeviceObj, characteristics7, function(buffer) {
+    	var data = t.dataTranslation(buffer, 'Uint8');
+			console.log('[Subscription] Device shaken: ' + data);
+			
+			var argObj = {
+				'id': 7,
+				'data': data
+			}
 
+			t.deviceShaken = data;
+
+			t.appCalculationNeeded();
+			
+			dataObjArrayCurr.push(argObj);
+
+			//allDataColected(argObj);
+
+		}, function(err){
+      console.log('Error in subscription characteristics7: ' + err);
+    });
+		
 
 	  // Mike asked for this way. 
     // Wait until certain moment then display whatever changed
@@ -1757,6 +1769,86 @@ cBleEventHandler.prototype = {
 	},
 
 	/* ===========================================================================
+	Mar.19.2018 - Need TTB calculation for updating TTB value locally. (without device) 
+	Get ratio of prev and curr then apply to current TTB
+	Formula is: 'parseInt(skin / (uv + (uv * env)))'
+	=========================================================================== */
+	getLatestInitTTB: function () {
+		var t = this;
+
+		// Using latest UV, skin, environment
+		var uvGT0_arr = t.uvTrackerArr.filter((el) => {
+			return el > 0;
+		});
+		return this.calcTTB(t.currentSkintype, t.currentEnvironment, uvGT0_arr[uvGT0_arr.length - 1]);
+
+	},
+
+	calcUpdatedTTB: function (prevSkin, prevEnv, currSkin, currEnv, currTTB) {
+		var t = this;
+
+		// Get ratio of change
+		var ratio = t.calcWriteTTBValue(currSkin, currEnv) / t.calcWriteTTBValue(prevSkin, prevEnv);
+		
+		// Apply to current TTB and return
+		console.log('\n===========================================================' +
+								'\nTTB recalculated: ' + parseInt(currTTB * ratio) + ', ratio is ' + ratio + 
+								'\nSkin, Env: [' + prevSkin + ', ' + prevEnv + '] => [' + currSkin + ', ' + currEnv + ']' +
+								'\n===========================================================');
+
+		return parseInt(currTTB * ratio);
+
+	},
+
+	getEnvValue: function (env) {
+		switch(env) {
+			case 0: return 0.15; break;
+			case 1: return 0.8; break;
+			case 2: return 0.25; break;
+			case 3: return 0.4; break;
+			case 4: return 0.25; break;
+			case 5: return 0.25; break;
+			default: return 0.25; break;
+		}
+	},
+
+	getSkinValue: function (skin) {
+		switch(skin) {				// in seconds
+			case 0: return 67; break;
+			case 1: return 100; break;
+			case 2: return 200; break;
+			case 3: return 300; break;
+			case 4: return 400; break;
+			case 5: return 500; break;
+			default: return 67; break;
+		}
+	},
+
+	// This value is for app timer.
+	calcTTB: function (skin, env, uv) {
+		var t = this;
+		if(uv < 1) uv = 1;
+		return parseInt((t.getSkinValue(skin) * 60) / (uv + (uv * t.getEnvValue(env))));
+	},
+
+	// This is value for 'Writing to the device'. Device is using this value
+	calcWriteTTBValue: function (skin, env) {
+		var t = this;
+		return t.getSkinValue(skin) / (1 + t.getEnvValue(env));
+	},
+
+	saveSkinEnv: function () {
+		// Just save the latest ones
+		localStorage["skin"] = this.currentSkintype;
+		localStorage["environment"] = this.currentEnvironment;
+	},
+
+	loadSkinEnv: function () {
+		this.currentSkintype = (localStorage["skin"]) ? Number(localStorage["skin"]) : 0;
+		this.currentEnvironment = (localStorage["environment"]) ? Number(localStorage["environment"]) : 0;
+	},
+
+	/* ===========================================================================
 	Mar.14.2018 - Group of init process after connected
 	in Background, try not read or write. Because after 'startReset', it'll disconnect from device anyway.
 	=========================================================================== */
@@ -1840,24 +1932,122 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
+		var weatherData = callWeatherHandler.currentWeatherData;
+		if(weatherData) weatherData = JSON.parse(weatherData);
+		var sunriseToday = weatherData['daily']['data'][0]['sunriseTime'];
+	  var sunsetToday = weatherData['daily']['data'][0]['sunsetTime'];
+
 		clearInterval(t.appTimerInterval);
 
 		t.appTimerInterval = setInterval(() => {
 
-			// Check updates then count down. SS first, then TTB
-	
-			if(t.ss_fromDevice > 0) {
-				t.ss_fromDevice--;
-			} else {
-				if(t.uv_fromDevice > 0 && t.ttb_fromDevice > 0) t.ttb_fromDevice--;
-			}
-			 
+			// All these have to be under sunrise, sunset time. 
+			var currentTime = parseInt(new Date().getTime() / 1000);
 
-			callViewHandler.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
+	    if(currentTime > sunriseToday && currentTime < sunsetToday) {
+	    	// Check updates then count down. SS first, then TTB
+	    	if(t.deviceShaken > 0) {
+	    		if(t.ss_fromDevice > 0) {
+
+						t.ss_fromDevice--;
+						if(t.ss_fromDevice < 0) t.ss_fromDevice = 0;
+
+						//t.updateTTB_whenSSInOn();
+
+					} else {
+						if(t.uv_fromDevice > 0 && t.ttb_fromDevice > 0) {
+							t.ttb_fromDevice--;
+							if(t.ttb_fromDevice < 0) t.ttb_fromDevice = 0;
+						}
+						else {
+							//console.log('[App Timer] UV is 0 or TTB is over: UV [' + t.uv_fromDevice + '], TTB [' + t.ttb_fromDevice + ']');
+						}
+					}
+	    	}
+	    	
+				callViewHandler.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
+
+	    } else {
+	    	// Night time. 
+	    	console.log('[App Timer] It\'s night time');
+	    	clearInterval(t.appTimerInterval);
+	    	callViewHandler.display_appTimer(0, 0);
+	    }
 
 		}, 1000);	
 
+	},
+
+	updateTTB_whenSSInOn: function () {
+		var t = this;
+		// When SS is on, TTB always shows UV 1 value. <--- important!
+		// When UV is changed, device TTB will not change but app must show 'recalculated' value
+		var uvGT0_arr = t.uvTrackerArr.filter((el) => {
+			return el > 0;
+		});
+		t.ttb_fromDevice = (uvGT0_arr.length > 0) ? parseInt(t.ttbFactorBy1 / uvGT0_arr[uvGT0_arr.length - 1]) : t.ttb_fromDevice;
+		
+		console.log('[App Timer] TTB: ' + t.ttb_fromDevice +', Latest UV: ' + ((uvGT0_arr.length > 0) ? uvGT0_arr[uvGT0_arr.length - 1] : 'NA'));
+
+	},
+
+	/* ===========================================================================
+	Mar.20.2018 - See if app can use device data or not. 
+	In some cases, device doesn't calculate TTB. In these cases, App is on its own.
+	No calculation occur when:
+	- Device no shaken. (Not started TTB)
+	- SS not applied
+	- TTB is over
+	Whenever subscription is updated, check this and decide
+	=========================================================================== */
+	checkDeviceCalculate: function () {
+		var t = this;	
+
+		var lastConnectionState = t.conState[t.conState.length - 1]; 
+		//console.log('Check Device Calculation Status: ' + lastConnectionState + ', SHK: ' + t.deviceShaken + ', SS: ' + t.ss_fromDevice + ', TTB: ' + t.ttb_fromDevice);
+		if(t.targetDeviceObj && lastConnectionState === t.conStateIndex.CONNECTED) {
+
+			if(t.deviceShaken == 0 || t.deviceShaken == 2) return false;
+			else if(t.ss_fromDevice > 0) return false;
+			else if(t.ttb_fromDevice < 1) return false;
+			else return true;
+
+		} else {
+			console.log('*** Device not exists or not connected');
+		}
+
+		return false;
+
+	},
+
+	// new 'initTTBTrackArr' must be stacked after this function
+	appCalculationNeeded: function () {
+		var t = this;
+		// Mar.20.2018 - If device is not calculating, use app's calculation
+		if(!t.checkDeviceCalculate()) {
+
+			var uvGT0_arr = t.uvTrackerArr.filter((el) => {
+				return el > 0;
+			});
+
+			// Get ratio of prev init and current TTB
+			var newTTB;
+			var prevInitTTB = (t.initTTBTrackArr.length > 0) ? t.initTTBTrackArr[t.initTTBTrackArr.length - 1] : t.ttb_fromDevice;
+			var ratio = t.ttb_fromDevice / prevInitTTB;
+
+			if(uvGT0_arr.length > 0 && uvGT0_arr[uvGT0_arr.length - 1] > 0) {
+				newTTB = t.calcTTB(t.currentSkintype, t.currentEnvironment, uvGT0_arr[uvGT0_arr.length - 1]);	
+			} else {
+				newTTB = t.calcTTB(t.currentSkintype, t.currentEnvironment, 1);	// use UV 1
+			}
+
+			console.log('TTB Recalculated: ' + newTTB + ' * (' + t.ttb_fromDevice + ' / ' + prevInitTTB + ') = ' + parseInt(newTTB * ratio));
+
+			t.ttb_fromDevice = parseInt(newTTB * ratio);
+	 
+		}
 	}
+
 
 }
 
