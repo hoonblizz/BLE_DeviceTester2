@@ -29,6 +29,7 @@ function onDeviceReady(){
 
   callBleEventHandler.loadSkinEnv();
   callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, callBleEventHandler.currentEnvironment);
+  callViewHandler.display_ttb_uv1(callBleEventHandler.ttb_uv1);
   
   // init events
   callClickHandler.init();

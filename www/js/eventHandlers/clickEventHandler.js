@@ -40,31 +40,6 @@ cClickEventHandler.prototype = {
 	      }
 	    },
 	    {
-	      text: 'Reset and Connect',
-	      onClick: function () {
-
-	      	var waitingTime = 1000;
-
-	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address deleted: ' + localStorage["deviceMacAddress"]);
-	      	localStorage["deviceMacAddress"] = '';
-
-	      	if(callBleEventHandler.targetDeviceObj) {
-	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
-	      			waitingTime = 3000;
-	      		}
-	      	}
-	      	myApp.showPreloader('Please wait...');
-
-	      	setTimeout(() => {
-	      		myApp.hidePreloader();
-	      		callBleEventHandler.startBLEProcess();
-	      	}, waitingTime);
-	        
-	        
-	      }
-	    },
-	    {
 	      text: 'Check Password',
 	      onClick: function () {
 	      	myApp.modal({
@@ -86,6 +61,35 @@ cClickEventHandler.prototype = {
 	      }
 	    },
 	    {
+	      text: 'Reset and Connect',
+	      onClick: function () {
+
+	      	var waitingTime = 1000;
+
+	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address deleted: ' + localStorage["deviceMacAddress"]);
+	      	localStorage["deviceMacAddress"] = '';
+
+	      	callViewHandler.clear_subscription();	// Mar.22.2018 - Clear subscription data list
+	      	callViewHandler.display_saved_device_address('');	// Mar.22.2018 - Clear 
+					callViewHandler.display_deviceName('');
+
+	      	if(callBleEventHandler.targetDeviceObj) {
+	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
+	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+	      			waitingTime = 3000;
+	      		}
+	      	}
+	      	myApp.showPreloader('Please wait...');
+
+	      	setTimeout(() => {
+	      		myApp.hidePreloader();
+	      		callBleEventHandler.startBLEProcess();
+	      	}, waitingTime);
+	        
+	        
+	      }
+	    },
+	    {
 	      text: 'Disconnect',
 	      onClick: function () {
 	      	evothings.ble.stopScan();
@@ -102,7 +106,7 @@ cClickEventHandler.prototype = {
 	      }
 	    },
 	    {
-	      text: 'Scan and Connect',
+	      text: 'Connect (or Scan)',
 	      onClick: function () {
 	        //callBleEventHandler.startScanning();
 	        callBleEventHandler.startBLEProcess();
@@ -150,10 +154,13 @@ cClickEventHandler.prototype = {
 			      callBleEventHandler.writeTTB()
 			      .then(() => {
 
+			      	callBleEventHandler.prevSkintype = prevSkinType; // Mar.23.2018 - Need previous settings 
 			      	callViewHandler.display_skinEnv(j, callBleEventHandler.currentEnvironment);
 			      	callBleEventHandler.saveSkinEnv();
 
-			      	callBleEventHandler.appCalculationNeeded();
+			      	// Mar.23.2018 - Skin and Env use different calculation methods
+			      	//callBleEventHandler.appCalculationNeeded();
+			      	callBleEventHandler.appCalculationNeeded_skinEnv(prevSkinType, callBleEventHandler.currentEnvironment, j, callBleEventHandler.currentEnvironment, 'app');
 
 			      	callBleEventHandler.initTTBTrackArr.push(callBleEventHandler.getLatestInitTTB());	// will be used to recalculate TTB
 			      	
@@ -193,10 +200,13 @@ cClickEventHandler.prototype = {
 			      callBleEventHandler.writeTTB()
 			      .then(() => {
 
+			      	callBleEventHandler.prevEnvironment = prevEnvironment; // Mar.23.2018 - Need previous settings 
 			      	callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, j);
 			      	callBleEventHandler.saveSkinEnv();
 
-			      	callBleEventHandler.appCalculationNeeded();
+			      	// Mar.23.2018 - Skin and Env use different calculation methods
+			      	//callBleEventHandler.appCalculationNeeded();
+			      	callBleEventHandler.appCalculationNeeded_skinEnv(callBleEventHandler.currentSkintype, prevEnvironment, callBleEventHandler.currentSkintype, j, 'app');
 
 			      	callBleEventHandler.initTTBTrackArr.push(callBleEventHandler.getLatestInitTTB());	// will be used to recalculate TTB
 			      	
@@ -217,6 +227,36 @@ cClickEventHandler.prototype = {
           text: i,
           onClick: clickEvent(i)
         });
+      }
+
+	    myApp.actions(modalButtons);
+
+	  });
+
+	  // Mar.22.2018 - Added for shortcut
+	  $$('.uvSelection').on('click', function (e) {
+
+	  	function clickEvent(j) {
+        return function() {
+        	if(j !== 9) {
+        		callBleEventHandler.startUVChange(j);
+        	} else {
+        		callBleEventHandler.startUVChange(15);	// read from device
+        	}
+        	callViewHandler.display_uvChange(j);
+        }
+      }
+
+	  	var modalButtons = [];
+
+	  	// Create buttons
+      for(var i = 0; i < 10; i++) {
+      	if(i !== 3 && i !== 5 && i !== 6 && i !== 7) {
+      		modalButtons.push({
+	          text: ((i == 9) ? 'Measure from Device' : i),
+	          onClick: clickEvent(i)
+	        });
+      	}
       }
 
 	    myApp.actions(modalButtons);

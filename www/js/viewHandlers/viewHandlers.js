@@ -20,6 +20,48 @@ cViewHandler.prototype = {
     
 	},
 
+	display_deviceName: function (deviceName) {
+		$$('#navbar-deviceName').html(deviceName);
+	},
+
+	display_saved_device_address: function (deviceAddress) {
+		$$('#saved_device_address').html(deviceAddress);
+	},
+
+	display_connected_device_address: function (deviceAddress) {
+		$$('#connected_device_address').html(deviceAddress);
+	},
+
+	display_ttb_written: function (ttbVal) {
+		var t = this;
+		var ttbSentArr = t.secondsToMinutes(ttbVal);
+		$$('#ttb_sent').html(ttbSentArr[0] + ' M ' + ttbSentArr[1] + ' S <-- ' + ttbVal + ' S');
+	},
+
+	display_ttb_uv1: function (ttbVal) {
+		var t = this;
+		var ttbArr;
+		if(callBleEventHandler.ss_fromDevice > 0) {
+			
+			// Mar.28.2018 - Pick Latest UV
+			var uvValue = 1;
+			var uvGT0_arr = callBleEventHandler.uvTrackerArr.filter((el) => { return el > 0; });
+			if(uvGT0_arr.length > 0) uvValue = uvGT0_arr[uvGT0_arr.length - 1];
+
+			var newTTB = parseInt(ttbVal / uvValue);
+			ttbArr = t.secondsToMinutes(newTTB);
+			
+			$$('#ttb-uv1').html(ttbArr[0] + ' M ' + ttbArr[1] + ' S  (' + ttbVal + ' S / '+ uvValue +' UVI)');
+			
+			//ttbArr = t.secondsToMinutes(ttbVal);
+			//$$('#ttb-uv1').html(ttbArr[0] + ' M ' + ttbArr[1] + ' S  (' + ttbVal + ' S)');
+		} else {
+			ttbArr = t.secondsToMinutes(ttbVal);
+			$$('#ttb-uv1').html(ttbArr[0] + ' M ' + ttbArr[1] + ' S  (' + ttbVal + ' S) No SS');
+		}
+		
+	},
+
   display_realtimeResult: function (char1Val, char2Val, char3Val, char4Val, 
                                     char5Val, char6Val, char7Val, char8Val, 
                                     char9Val, char11Val, char12Val, char13Val, 
@@ -288,6 +330,7 @@ cViewHandler.prototype = {
   display_uvChange: function (val) {
 
     $$('.uvCurrentValue').html('UV Selected: ' + val);
+    $$('#uvSelection-selected').html(val);
 
   },
 
@@ -297,9 +340,9 @@ cViewHandler.prototype = {
   },
 
   // Mar.20.2018 - Change number for skintype and env
-  display_skinEnv: function (skin, env) {
-    $$('.skintypeSelection').html(skin);
-    $$('.environmentSelection').html(env);
+  display_skinEnv: function (skin, env, uv) {
+    $$('#skintypeSelection-selected').html(skin);
+    $$('#environmentSelection-selected').html(env);
   },  
 
   display_subscription: function (dataObjArray) {
@@ -337,6 +380,10 @@ cViewHandler.prototype = {
 
   },
 
+  clear_subscription: function () {
+  	$$('#subscription-data').html('');
+  },
+
   display_appTimer: function (ttb, ss) {
     var t = this;
 
@@ -349,7 +396,7 @@ cViewHandler.prototype = {
       if(callBleEventHandler.deviceShaken > 0) {
         var ttb_arr = t.secondsToMinutes(ttb);
         var ss_arr = t.secondsToMinutes(ss);
-        $$('#appTimer-ttb').html(ttb_arr[0] + ' M ' + ttb_arr[1] + ' S');
+        $$('#appTimer-ttb').html(ttb_arr[0] + ' M ' + ttb_arr[1] + ' S (' + ttb + ' S)');
         $$('#appTimer-ss').html(ss_arr[0] + ' M ' + ss_arr[1] + ' S');
       } else {
         $$('#appTimer-ttb, #appTimer-ss').html('--');

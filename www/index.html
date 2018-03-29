@@ -36,7 +36,7 @@
         <!-- index page navbar -->
         <div class="navbar-inner" data-page="index">
           <div class="left" id="Navbar_leftButton">Datalog</div>
-          <div class="center sliding" style="font-size: 4.5vw; font-weight: 700;">DEVICE TESTER 2</div>
+          <div id="navbar-deviceName" class="center sliding" style="font-size: 4vw; font-weight: 600;">DEVICE TESTER 2</div>
           <div class="right" id="Navbar_rightButton">Options</div>
         </div>
       </div>
@@ -52,14 +52,26 @@
 
                 <div class="content-block" style="margin-top: 5%; width: 100%;">
 
-                  <div class="row" style="font-size: 4vw; margin-top: 5%;">
-                  	<div class="col-25" style="display: flex; align-items: center; justify-content: center;">Skin: </div>
-                    <div class="col-25 button button-fill skintypeSelection" style="height: 50%;">0</div>
-                    <div class="col-25" style="display: flex; align-items: center; justify-content: center;">Env: </div>
-                    <div class="col-25 button button-fill environmentSelection" style="height: 50%;">0</div>
+                	<div style="font-size: 3.5vw; margin-top: 1%;">
+                		Saveded: <span id="saved_device_address" style="color: brown;"></span>
+                	</div>
+                	<div style="font-size: 3.5vw; margin-top: 0%;">
+                		Connctd: <span id="connected_device_address" style="color: green;"></span>
+                	</div>
+
+                  <div class="row" style="font-size: 4vw; margin-top: 2%; height: 35px; font-weight: 600;">
+                  	<div class="col-33 skintypeSelection" style="border: 2px solid red; border-radius: 5px; padding-left: 5px;">
+                  		Skin: <span id="skintypeSelection-selected"></span>
+                  	</div>
+                  	<div class="col-33 environmentSelection" style="border: 2px solid green; border-radius: 5px; padding-left: 5px;">
+                  		Env: <span id="environmentSelection-selected"></span>
+                  	</div>
+                	<div class="col-33 uvSelection" style="border: 2px solid blue; border-radius: 5px; padding-left: 5px;">
+                  		UV: <span id="uvSelection-selected"></span>
+                  	</div>
                   </div>
                
-                  <div style="margin-top: 5%;">TTB Tester: <span id="ttb_result" style="color: blue;"></span><span id="ttb_whatIsWritten" style="color: green;"></span></div>
+                  <div style="margin-top: 0%;">TTB Total: <span id="ttb_result" style="color: blue;"></span><span id="ttb_whatIsWritten" style="color: green;"></span> <-- [<span id="ttb_sent" style="color: blue;"></span>]</div>
                   
                   <div class="row">
                     <div class="col-40 button button-fill" style="background-color: white;">
@@ -71,10 +83,14 @@
                     </div>
                   </div>
 
+                  <!-- Testing inital TTB when UV 1 -->
+                  <div class="row" style="background-color: black; margin-top: 3%; color: white; font-size: 4.5vw;">
+                  	<div class="col-100">TTB(1): <span id="ttb-uv1"></span></div>
+                  </div>
                   <!-- Timer in App -->
-                  <div class="row" style="background-color: black; margin-top: 3%; color: yellow; font-size: 5vw;">
-                    <div class="col-50">TTB: <span id="appTimer-ttb" style="padding-left: 10px; padding-right: 5px;"></span></div>
-                    <div class="col-50">SS: <span id="appTimer-ss" style="padding-left: 10px; padding-right: 5px;"></span></div>
+                  <div class="row" style="background-color: black; margin-top: 1%; color: yellow; font-size: 4.5vw;">
+                    <div class="col-65">TTB: <span id="appTimer-ttb" style="padding-left: 3px; padding-right: 5px;"></span></div>
+                    <div class="col-35">SS: <span id="appTimer-ss" style="padding-left: 3px; padding-right: 2px;"></span></div>
                   </div>
 
                   <div style="margin-top: 1%;">Subscription: <span id="subscription-time" style="color: green; font-size: 4vw;"></span></div>
@@ -93,7 +109,7 @@
 
                 </div>
 
-                <div class="content-block">
+                <div class="content-block" style="margin-top: 1%;">
                   <div id="BLE-Status" style="font-size: 4vw;">Start...</div>
                 </div>
 
