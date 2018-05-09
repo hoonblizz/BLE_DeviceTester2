@@ -20,6 +20,8 @@ var subscriptionDisplayListIndex = 0; // Feb.20.2018 - Added
 var appBGFG = 8;    // onBG - 7, onFG - 8
 var BackgroundFetch;  // Mar.08.2018 - Testing for background fetch event
 
+var bgTestingInterval = 0;	// May.03.2018 - Testing for BG
+
 var datalogNotificationDone = new CustomEvent('datalogNotificationDone'); // Mar.07.2018 - Added to track of datalog completed
 
 document.addEventListener("deviceready", onDeviceReady, false);
@@ -48,7 +50,7 @@ function onDeviceReady(){
     var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
     if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-      callBleBGEventHandler.notifyDevice_AppOnFG();
+      //callBleBGEventHandler.notifyDevice_AppOnFG_iOS();
     }
 
     callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
@@ -57,7 +59,7 @@ function onDeviceReady(){
     //if(callBleEventHandler.wait_then_connect_interval == 0) {
       setTimeout(function () {
         callBleEventHandler.startBLEProcess();
-      }, 4000);
+      }, 5000);
     //}
 
   }, false);
@@ -68,25 +70,38 @@ function onDeviceReady(){
 
       appBGFG = 8;
       console.log('Foreground (Resume): ' + appBGFG + ', wait_then_connect_interval: ' + callBleEventHandler.wait_then_connect_interval);
+      clearInterval(bgTestingInterval);
 
       var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
       if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-        callBleBGEventHandler.notifyDevice_AppOnFG();
+
+      	if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
+      		//callBleBGEventHandler.notifyDevice_AppOnFG_android();
+      	} else {
+      		//callBleBGEventHandler.notifyDevice_AppOnFG_iOS();
+      	}
+        
       }
 
-      callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+      // May.03.2018 - For Android, always gets connected
+      if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
+      	// Do nothing?
+      } else {
+      	callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
 
-      // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
-      //if(callBleEventHandler.wait_then_connect_interval == 0) {
-        setTimeout(function () {
-          callBleEventHandler.startBLEProcess();
-        }, 4000);
-      //}
+	      // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
+	      setTimeout(function () {
+	        callBleEventHandler.startBLEProcess();
+	      }, 5000);
+      }
+      
 
+      /*
       if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
         BackgroundFetch.stop();
       }
+      */
       
     }, 0);
   }, false); 
@@ -105,9 +120,11 @@ function onDeviceReady(){
     var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
     if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-      callBleBGEventHandler.notifyDevice_AppOnBG();
+      
+      // Apr.05.2018 - For android, we give options like, 'disconnect in BG', 'Always connected even in BG'
+      
       if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-
+      	/*
         BackgroundFetch.stop();
 
         BackgroundFetch.configure(bgFetchCallback, bgFailureCallback, {
@@ -116,7 +133,17 @@ function onDeviceReady(){
           startOnBoot: false,        // <-- Android only
           forceReload: false         // <-- Android only
         });
-    
+    		*/
+    		callBleBGEventHandler.notifyDevice_AppOnBG_android();
+
+    		let timeStart = new Date().getTime();
+    		bgTestingInterval = setInterval(() => {
+    			let timeSurvived = parseInt((new Date().getTime() - timeStart) / 1000);
+    			if((timeSurvived % 10) == 0) console.log('Time Survived: ' + timeSurvived + ' s...');
+    		}, 2000);
+
+      } else {
+      	callBleBGEventHandler.notifyDevice_AppOnBG_iOS();
       }
     }
     

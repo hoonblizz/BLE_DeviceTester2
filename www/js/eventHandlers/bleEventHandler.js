@@ -206,6 +206,8 @@ function cBleEventHandler() {
 	// Mar.23.2018 - TTB when uv 1 value. Save it in local.
 	this.ttb_uv1 = 0;
 
+	this.infiniteWritingTestStart = false;
+
 }
 
 cBleEventHandler.prototype = {
@@ -218,79 +220,125 @@ cBleEventHandler.prototype = {
 		// Check to just connect or scan
 		var deviceInfoString = localStorage["deviceMacAddress"];
 
+		// Apr.17.2018 - Name is primary source for connection in Fourground. <-- important!
+		// May.03.2018 - deviceMacAddress will be used only for reconnection (if possible)
+		// and will be replaced when 'First Time since battery data' is right. (Check below)
+		var defaultName = localStorage["deviceName"]		
+
 		t.bgErrorStack = 0;
 
 		this.loadPassword();		// Feb.21.2018 - load password implemented
 
 		evothings.ble.stopScan();
+		t.conState.push(t.conStateIndex.DISCONNECTED);
 
-		if(deviceInfoString && deviceInfoString !== '') {	// Device info exists, lets directly connect
+		// Apr.05.2018 - For androids, we can simply reconnect if it was connected before. 
+		if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
+			if(t.targetDeviceObj) {
 
-			var deviceObj = JSON.parse(deviceInfoString);
-			//callViewHandler.ble_status_msg('#BLE-Status', 'Registered device Info Found: ' + deviceInfoString);
+				t.startConnecting(t.targetDeviceObj);
 
-			// Mar.22.2018 - Display pre-stored device object
-			callViewHandler.display_saved_device_address(deviceObj.address);
-			callViewHandler.display_deviceName(deviceObj.name);
+			} else {
+				
+				if(deviceInfoString && deviceInfoString !== '') {	// Device info exists, lets directly connect
 
-			// Scan then connect
-			t.startScanThenConnect(deviceObj);
+					var deviceObj = JSON.parse(deviceInfoString);
+					//callViewHandler.ble_status_msg('#BLE-Status', 'Registered device Info Found: ' + deviceInfoString);
+
+					// Mar.22.2018 - Display pre-stored device object
+					callViewHandler.display_saved_device_address(deviceObj.address);
+					if(defaultName && defaultName !== '') callViewHandler.display_deviceName(defaultName);
+					else callViewHandler.display_deviceName(deviceObj.name);
+
+					t.startConnecting(deviceObj);
+
+				} else {
+
+					// Mar.22.2018 - Display nothing
+					callViewHandler.display_saved_device_address('');
+					callViewHandler.display_deviceName('');
+
+					t.conState.push(t.conStateIndex.SCANNING);
+					t.startScanning();
+				}
+				
+				/*
+				// Mar.22.2018 - Display nothing
+				callViewHandler.display_saved_device_address('');
+				callViewHandler.display_deviceName('');
+
+				t.conState.push(t.conStateIndex.SCANNING);
+				t.startScanning();
+				*/
+			}
 
 		} else {
 
-			// Mar.22.2018 - Display nothing
-			callViewHandler.display_saved_device_address('');
-			callViewHandler.display_deviceName('');
+			t.conState.push(t.conStateIndex.SCANNING);
 
-			t.startScanning();
+			if(deviceInfoString && deviceInfoString !== '') {
+				var deviceObj = JSON.parse(deviceInfoString);
+				callViewHandler.display_saved_device_address(deviceObj.address);
+			}
+
+			if(defaultName && defaultName !== '') {
+
+				callViewHandler.display_deviceName(defaultName);
+
+				t.startScanThenConnect(defaultName);
+
+			} else {
+				
+				t.startScanning();
+
+			}
+
+
+
 		}
+		
+		
 	},
 
 	/* ===========================================================================
 	Scanning then connect
 	Jan.11.2018 - Added for 'automatic connection' and 'connect even system already connected'
 	=========================================================================== */
-	startScanThenConnect: function (deviceInfoObj) {
+	startScanThenConnect: function (deviceName) {
 
 		var t = this;
 		var bleStatus = 'SCANNING';
 
 		callViewHandler.ble_status_msg('#BLE-Status', 'Scan and connect Started');
-		console.log('Scan and connect Started...');
+		//console.log('Scan and connect Started... Target: ' + deviceName);
 
-		// Even after tiemout, it's still 'SCANNING', means device is not around
-		// Mar.06.2018 - Remove timeout. For other usage
-		/*
-		setTimeout(function() {
+		var scanFoundFcn = function (device) {
+			evothings.ble.stopScan();
+			t.conState.push(t.conStateIndex.DISCONNECTED);
 
-			if(bleStatus === 'SCANNING') {
-				evothings.ble.stopScan();
-				callViewHandler.ble_status_msg('#BLE-Status', 'Device ' + deviceInfoObj.name + ' is not found.');
-			}
+			bleStatus = 'CONNECTING';
 
-		},10000);
-		*/
+			t.startConnecting(device);
+		}
 
 		evothings.ble.startScan(function(device) {
+
+			console.log('\n[Scan for Existing] Device Found: \n' + JSON.stringify(device));
 
 			if(device !== null && device.hasOwnProperty('name')) {
 
 				console.log('[Scan for Existing] Device Found: ' + device.name + ', ' + device.address);
 
-				if(device.name === deviceInfoObj.name) { // device.name === deviceInfoObj.name
-
-					evothings.ble.stopScan();
-
-					bleStatus = 'CONNECTING';
-
-					t.startConnecting(device);
-
+				// May.03.2018 - For iOS (Sometimes name can be different from 'name' property)
+				if(t.getDeviceName(device) === deviceName) { 
+					scanFoundFcn(device);
 				}
+
 			}
 
 		}, function(err){
       console.log('Error while Scanning...');
-	  }, { serviceUUIDs: [t.serviceUUID] });  
+	  }, { serviceUUIDs: [t.serviceUUID] });  // t.serviceUUID
 
 	},
 
@@ -314,20 +362,21 @@ cBleEventHandler.prototype = {
 		var t = this;
 		
 		evothings.ble.stopScan();
+		t.conState.push(t.conStateIndex.DISCONNECTED);
 
 		t.scannedDeviceArr = [];		// empty list
 
 		evothings.ble.startScan(function(device) {
 
-	    if(device !== null && device.hasOwnProperty('name')) {
+			var deviceName;
+	    if(device !== null) {
 
-	    	console.log('[Scan for New] Device Found: ' + device.name);
+	    	deviceName = t.getDeviceName(device);
+	    	console.log('[Scan for New] Device Found: ' + deviceName);
 
-	    	var deviceName = device.name;
-
-        // check if already in the list
-        var listChecker = t.scannedDeviceArr.find(function(element) {
-          return element.name === deviceName;
+	    	// check if already in the list
+        var listChecker = t.scannedDeviceArr.find((element) => {
+        	return t.getDeviceName(element) === deviceName;
         });
 
         //console.log('Filtered List: ' + JSON.stringify(listChecker));
@@ -338,6 +387,7 @@ cBleEventHandler.prototype = {
           console.log(deviceName + ' is pushed...');
           t.scannedDeviceArr.push(device);
         }
+	    	
       }
 
     }, function(err){
@@ -355,6 +405,7 @@ cBleEventHandler.prototype = {
 		t.scanTimeoutInterval = setTimeout(function() {
 
 			evothings.ble.stopScan();
+			t.conState.push(t.conStateIndex.DISCONNECTED);
 
 			if(t.scannedDeviceArr.length > 0) {
 
@@ -369,7 +420,7 @@ cBleEventHandler.prototype = {
         // Create buttons
         for(var i = 0; i < t.scannedDeviceArr.length; i++) {
           modalButtons.push({
-            text: t.scannedDeviceArr[i].name,
+            text: t.getDeviceName(t.scannedDeviceArr[i]),
             onClick: clickEvent(t.scannedDeviceArr[i])
           });
         }
@@ -403,12 +454,14 @@ cBleEventHandler.prototype = {
 
 		var timeLimit = 60 * 1000;
 		var defaultAddress = JSON.parse(localStorage["deviceMacAddress"]);
+		var defaultName = JSON.parse(localStorage["deviceName"]);		// Name is primary source for connection in Fourground.
 
 		console.log('Scanning Started for BG Fetch... [ ' + defaultAddress.address + ' ]');
 
 		// Set Timeout then when it's over, stop scanning then run finish
 		setTimeout(() => {
 			evothings.ble.stopScan();
+			t.conState.push(t.conStateIndex.DISCONNECTED);
 			BackgroundFetch.finish(); // <---- important!
 			console.log('BG Fetch Scan is timedout and finish called...');
 		}, timeLimit);
@@ -422,6 +475,7 @@ cBleEventHandler.prototype = {
 	    	var defaultAddress = JSON.parse(localStorage["deviceMacAddress"]);
 	    	if(device.address === defaultAddress.address) {
 	    		evothings.ble.stopScan();
+	    		t.conState.push(t.conStateIndex.DISCONNECTED);
 	    		t.startConnecting(device);
 	    	}
 	    	
@@ -444,13 +498,13 @@ cBleEventHandler.prototype = {
 			t.conState.push(t.conStateIndex.CONNECTING); // connecting
 
 			console.log('\n============================================================' +
-									'\n Connecting to ' + deviceObj.name + '...' +
+									'\n Connecting to ' + t.getDeviceName(deviceObj) + '...' +
 									'\nTarget address: ' + deviceObj.address +
 									'\nDefault: ' + ((localStorage["deviceMacAddress"]) ? JSON.parse(localStorage["deviceMacAddress"]).address : 'DNE') +
 									//'\nActivity Track: ' + t.conState + 
 									'\n============================================================\n');
 
-			callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to ' + deviceObj.name + '<br>' + deviceObj.address);
+			callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to ' + t.getDeviceName(deviceObj) + '<br>' + deviceObj.address);
 
 			// Save into Local
 	    if(deviceObj.hasOwnProperty('address'))
@@ -473,19 +527,19 @@ cBleEventHandler.prototype = {
 
 			clearInterval(t.connectionWaitingInterval);
 			clearInterval(t.connectingStateDurationInterval);
-			t.conState.push(t.conStateIndex.CONNECTED);
+			
 			t.device_state_connected(deviceObj);
 
 		}, function(){
 
 			clearInterval(t.connectionWaitingInterval);
-			t.conState.push(t.conStateIndex.DISCONNECTED);
+			
 			t.device_state_disconnected(deviceObj);
 
 		}, function(err){
 
 			clearInterval(t.connectionWaitingInterval);
-			t.conState.push(t.conStateIndex.DISCONNECTED);
+		
 			t.device_state_error(err, deviceObj);
 
 		}, { discoverServices: true });
@@ -501,25 +555,32 @@ cBleEventHandler.prototype = {
 		// Global use
 		t.targetDeviceObj = deviceObj;
 
+		t.conState.push(t.conStateIndex.CONNECTED);
+
 		// Save into Local if device info has full list of services and chars
 		// Save it only once!
 		// Save only when app is on Foreground. 
-		if(!localStorage["deviceMacAddress"] && deviceObj.hasOwnProperty('services')) {
-    	localStorage["deviceMacAddress"] = JSON.stringify(deviceObj);		// save entire info of device
 
-    	// Mar.22.2018 - Display pre-stored device object
-			callViewHandler.display_saved_device_address(deviceObj.address);
-			callViewHandler.display_deviceName(deviceObj.name);
+		// Apr.17.2018 - Not Save in any case EXCEPT when 'First Time' subscription is received 
+		// When BG, connection rely on Address. 
+		if(!localStorage["deviceName"] && deviceObj.hasOwnProperty('services')) {
+
+			// May.03.2018 - For iOS, use local name
+			localStorage["deviceName"] = t.getDeviceName(deviceObj);
+			callViewHandler.display_deviceName(t.getDeviceName(deviceObj)); 
+
+			
 
     	myApp.modal({
-        title: 'Default Address Saved!',
-        text: deviceObj.address,
+        title: 'Default Name Saved!',
+        text: t.getDeviceName(deviceObj),
         buttons: [{text: 'Ok'}]
       }); 
 		}
+		
     
     console.log('\n============================================================' +
-								'\n Connected!! \n' + t.targetDeviceObj.name + 
+								'\n Connected!! \n' + t.getDeviceName(t.targetDeviceObj) + 
 								'\nConnected to: ' + t.targetDeviceObj.address +
 								'\nDefault: ' + ((localStorage["deviceMacAddress"]) ? JSON.parse(localStorage["deviceMacAddress"]).address : 'DNE') +
 								//'\nActivity Track: ' + t.conState + 
@@ -532,7 +593,7 @@ cBleEventHandler.prototype = {
 		});
 		
 
-		callViewHandler.ble_status_msg('#BLE-Status', deviceObj.name + ' Connected! ' + '<br>' + deviceObj.address);
+		callViewHandler.ble_status_msg('#BLE-Status', t.getDeviceName(deviceObj) + ' Connected! ' + '<br>' + deviceObj.address);
 		callViewHandler.display_connected_device_address(deviceObj.address);
 		
 		t.initAfterConnected();
@@ -573,27 +634,56 @@ cBleEventHandler.prototype = {
 				}, 5000)
 			} 
 			*/
-			if(err == 19) {
+			if(err == 8) {
+				t.wait_then_connect(deviceObj);
+			} else if(err == 19) {
 				t.disconnectDevice(deviceObj);
 			} else if(err == 133) {
 
-				if(appBGFG == 7) t.startBGFetchEvent(deviceObj);
-				else t.startConnecting(deviceObj);
+				if(appBGFG == 7) {
+					//t.startBGFetchEvent(deviceObj);
+					t.wait_then_connect(deviceObj)
+				}
+				else t.wait_then_connect(deviceObj);
 
 			} else if(err == 257) {
-
+				/*
 				evothings.ble.reset();	// Mar.09.2018 - BLE unable to scan or connect in this error. Reset it.
 
 				if(appBGFG == 8) t.startConnecting(deviceObj);	
 				else t.disconnectDevice(deviceObj);
+				*/
+				if(appBGFG == 7) {
+					BackgroundFetch.stop();
 
+	        var bgFetchCallback = function() {
+				    console.log('- BackgroundFetch event received');
+
+				    // For iOS, 30 seconds are allowed. Android?
+				    // finish() is called in scan timeout
+				    t.startBGFetchEvent();
+
+				  };
+
+				  var bgFailureCallback = function(error) {
+				    console.log('- BackgroundFetch failed: ', error);
+				  };
+
+				  BackgroundFetch.configure(bgFetchCallback, bgFailureCallback, {
+	          minimumFetchInterval: 15, // <-- default is 15
+	          stopOnTerminate: true,   // <-- Android only
+	          startOnBoot: false,        // <-- Android only
+	          forceReload: false         // <-- Android only
+	        });
+
+				}
 			} else {
 				if(appBGFG == 8) t.startConnecting(deviceObj);	
 				else t.disconnectDevice(deviceObj);
 			}
 			
 		} else {
-			if(err === 'device already connected') {
+			if(err === 'device already connected.') {
 
 				// Mar.06.2018 - Issue:
 				// BLE connection cycle -> App FG -> BG is good for one cycle. If another cycle happens, 'device already connected' happens.
@@ -601,7 +691,7 @@ cBleEventHandler.prototype = {
 				// if in connecting state, it'll stay connecting. <--- !!!!
 
 			} else {
-				//t.wait_then_connect(deviceObj);
+				t.wait_then_connect(deviceObj);
 			}
 		} 
 		
@@ -628,6 +718,8 @@ cBleEventHandler.prototype = {
 
 		callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected...');
 		callViewHandler.display_connected_device_address('');	// MAr.22.2018 - Empty
+
+		t.conState.push(t.conStateIndex.DISCONNECTED);
 
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
@@ -736,7 +828,14 @@ cBleEventHandler.prototype = {
 		t.wait_then_connect_interval = setTimeout(() => {
 			clearTimeout(t.wait_then_connect_interval);
     	if(appBGFG == 7) {
-    		t.startConnecting(JSON.parse(localStorage["deviceMacAddress"]));	// try connect to default address <--!!!
+
+    		// Apr.17.2018 - If current device name is different, don't connect
+    		var defaultDeviceName = localStorage["deviceName"];
+    		if(defaultDeviceName && defaultDeviceName !== '') {
+    			var deviceObj = JSON.parse(localStorage["deviceMacAddress"]);
+    			if(defaultDeviceName === deviceObj.name) t.startConnecting(deviceObj);	// try connect to default address <--!!!
+    		}
+    		
     	} else {
     		t.startBLEProcess();	// timeout is removed. It'll run forever until it finds one. ONLY in Freground!! 
     	}
@@ -751,6 +850,7 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
+		t.targetDeviceObj = undefined; // May.03.2018 - Reset completely
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
 		clearInterval(t.appTimerInterval);
@@ -759,15 +859,15 @@ cBleEventHandler.prototype = {
 		t.initTTBTrackArr = [];	// Mar.21.2018 - calculate TTB
 
 		evothings.ble.stopScan();
-		evothings.ble.close(deviceObj);
+		t.conState.push(t.conStateIndex.DISCONNECTED);
+		if(deviceObj) evothings.ble.close(deviceObj);
 		// Be sure to disconnect default address too. (Somehow it doesn't clear peripheral for default address)
 		if(localStorage["deviceMacAddress"]) evothings.ble.close(JSON.parse(localStorage["deviceMacAddress"]));
 
-		t.conState.push(t.conStateIndex.DISCONNECTED);
 		callViewHandler.ble_status_msg('#BLE-Status', 'Disconnecting...');
 		callViewHandler.display_tester_deviceStatus('Disconnected');
 		callViewHandler.display_connected_device_address('');	// Mar.22.2018
-		console.log('Disconnecting');
+		console.log('Disconnecting ');
 		/*
 		cordova.plugins.notification.local.schedule({
 			id: 9,
@@ -801,7 +901,7 @@ cBleEventHandler.prototype = {
 		    	reject('Error Reading: ' + err);
 		    });
 			} else {
-				reject('[Err Read] No Device info or not connected');
+				reject('[Err Read] No Device info or not connected: [state: ' + lastConnectionState + ']');
 			}
 		});
 		
@@ -846,6 +946,7 @@ cBleEventHandler.prototype = {
 			if(t.targetDeviceObj && lastConnectionState === t.conStateIndex.CONNECTED) {
 				evothings.ble.writeCharacteristic(t.targetDeviceObj, characteristic, data, function(){
 
+					console.log('Success Writing: ' + data);
 					t.userState.push(t.userStateIndex.WRITE_DONE + '[' + data + ']');
 		      resolve(data);
 
@@ -1180,7 +1281,27 @@ cBleEventHandler.prototype = {
 			.catch(function(err){
 				console.log('Stopping Realtime Reading...');
 				callViewHandler.ble_status_msg('#BLE-Status', 'Error in realtime reading ' + err);
-				//clearInterval(t.readRealtimeIntervalID);
+				
+				clearInterval(t.readRealtimeIntervalID);
+
+				// Apr.18.2018 - ask to manually start realtime.
+				myApp.modal({
+		      title: 'Realtime Error !',
+		      text: err,
+		      verticalButtons: true,
+		      buttons: [
+		      {
+		        text: 'Retry Realtime',
+		        onClick: function () {
+		        	t.startReadRealtime();
+		        }
+		      },
+		      {
+		        text: 'Ok'
+		      }
+		      ]
+		    });
+
 			});
 
 		}, t.initialRealTimeReadingInterval);
@@ -1204,7 +1325,10 @@ cBleEventHandler.prototype = {
     var service1 = evothings.ble.getService(t.targetDeviceObj, serviceAddress1);
     var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);
    	
-   	if(val == 7 || val == 8) callViewHandler.ble_status_msg('#BLE-Status', 'Writing FG/BG... ' + val);
+   	if(val == 7 || val == 8 || val == 9 || val == 10) {
+   		console.log('Writing: ' + val);
+   		callViewHandler.ble_status_msg('#BLE-Status', 'Writing FG/BG... ' + val);
+   	}
 
     return t.writeValue(characteristics1, new Uint32Array([val]))
 
@@ -1815,6 +1939,21 @@ cBleEventHandler.prototype = {
 				'id': 5,
 				'data': data
 			}
+
+			// Apr.16.2018 - If its the first time, reset saved address
+			// Apr.17.2018 - Saving happens only when 'First Time' is received.
+			if(Number(data) !== 0) {	
+				if(t.targetDeviceObj) {
+					//console.log('First Time ['+ data + ', '+ typeof data +']! Changing Address from ' + JSON.parse(localStorage["deviceMacAddress"]).address + ' => ' + t.targetDeviceObj.address);
+					localStorage["deviceMacAddress"] = JSON.stringify(t.targetDeviceObj);	// save current one.
+
+					localStorage["deviceName"] = t.getDeviceName(t.targetDeviceObj);
+					callViewHandler.display_deviceName(t.getDeviceName(t.targetDeviceObj));
+	
+					callViewHandler.display_saved_device_address(t.targetDeviceObj.address);
+					
+				}
+			}
 			
 			dataObjArrayCurr.push(argObj);
 
@@ -1937,6 +2076,9 @@ cBleEventHandler.prototype = {
 		if(prop > 50) final = passcode1;
 		else final = passcode2;
 
+		// Apr.05.2018 - Only for multiple device testing
+		//final = 11111;
+
 		localStorage["userPassword"] = final + '';
 		this.userPassword = final;
 
@@ -2041,6 +2183,7 @@ cBleEventHandler.prototype = {
 		var t = this;
 
 		t.userState.push(t.userStateIndex.ENTER_PASSWORD);
+		evothings.ble.stopScan();
 
 		t.startEnteringPassword()
 		.then(() => {
@@ -2052,7 +2195,12 @@ cBleEventHandler.prototype = {
 
     	t.userState.push(t.userStateIndex.SIGNAL_FG);
 
-			return t.startReset(appBGFG);
+    	if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
+    		return t.startReset(10);
+    	} else {
+    		return t.startReset(appBGFG);
+    	}
+			
 		})
 		.then(() => {
 			console.log('Writing FG/BG Done...');
@@ -2102,7 +2250,10 @@ cBleEventHandler.prototype = {
 	    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing Sunrise done');
 
 	    	//t.checkFirstTimeSinceBattery();
-	    	t.startReadRealtime();
+	    	//t.startReadRealtime();
+
+	    	//t.writingTest();		// May.03.2018 - only for testing
+
 			} else return true;
 			
 		})
@@ -2117,49 +2268,62 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
+		console.log('Start App Timer...');
+
+		var sunriseToday = 0; var sunsetToday = 0;
 		var weatherData = callWeatherHandler.currentWeatherData;
-		if(weatherData) weatherData = JSON.parse(weatherData);
-		var sunriseToday = weatherData['daily']['data'][0]['sunriseTime'];
-	  var sunsetToday = weatherData['daily']['data'][0]['sunsetTime'];
+		if(weatherData) {
+			weatherData = JSON.parse(weatherData);
+			sunriseToday = weatherData['daily']['data'][0]['sunriseTime'];
+	  	sunsetToday = weatherData['daily']['data'][0]['sunsetTime'];
+		}
+		
 
 		clearInterval(t.appTimerInterval);
 
-		t.appTimerInterval = setInterval(() => {
 
-			// All these have to be under sunrise, sunset time. 
-			var currentTime = parseInt(new Date().getTime() / 1000);
+		if(sunriseToday !== 0 && sunsetToday !== 0) {
 
-	    if(currentTime > sunriseToday && currentTime < sunsetToday) {
-	    	// Check updates then count down. SS first, then TTB
-	    	if(t.deviceShaken > 0) {
-	    		if(t.ss_fromDevice > 0) {
+			t.appTimerInterval = setInterval(() => {
 
-						t.ss_fromDevice--;
-						if(t.ss_fromDevice < 0) t.ss_fromDevice = 0;
+				// All these have to be under sunrise, sunset time. 
+				var currentTime = parseInt(new Date().getTime() / 1000);
 
-						//t.updateTTB_whenSSInOn();
+		    if(currentTime > sunriseToday && currentTime < sunsetToday) {
+		    	// Check updates then count down. SS first, then TTB
+		    	if(t.deviceShaken > 0) {
+		    		if(t.ss_fromDevice > 0) {
 
-					} else {
-						if(t.uv_fromDevice > 0 && t.ttb_fromDevice > 0) {
-							t.ttb_fromDevice--;
-							if(t.ttb_fromDevice < 0) t.ttb_fromDevice = 0;
+							t.ss_fromDevice--;
+							if(t.ss_fromDevice < 0) t.ss_fromDevice = 0;
+
+							//t.updateTTB_whenSSInOn();
+
+						} else {
+							if(t.uv_fromDevice > 0 && t.ttb_fromDevice > 0) {
+								t.ttb_fromDevice--;
+								if(t.ttb_fromDevice < 0) t.ttb_fromDevice = 0;
+							}
+							else {
+								//console.log('[App Timer] UV is 0 or TTB is over: UV [' + t.uv_fromDevice + '], TTB [' + t.ttb_fromDevice + ']');
+							}
 						}
-						else {
-							//console.log('[App Timer] UV is 0 or TTB is over: UV [' + t.uv_fromDevice + '], TTB [' + t.ttb_fromDevice + ']');
-						}
-					}
-	    	}
-	    	
-				callViewHandler.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
+		    	}
+		    	
+					callViewHandler.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
 
-	    } else {
-	    	// Night time. 
-	    	console.log('[App Timer] It\'s night time');
-	    	clearInterval(t.appTimerInterval);
-	    	callViewHandler.display_appTimer(0, 0);
-	    }
+		    } else {
+		    	// Night time. 
+		    	console.log('[App Timer] It\'s night time');
+		    	clearInterval(t.appTimerInterval);
+		    	callViewHandler.display_appTimer(0, 0);
+		    }
 
-		}, 1000);	
+			}, 1000);	
+
+		} else {
+			console.log('SunTime is not right. (Maybe failed to get Weather Data)')
+		}
 
 	},
 
@@ -2185,6 +2349,12 @@ cBleEventHandler.prototype = {
 	- TTB is over
 	Whenever subscription is updated, check this and decide
 	=========================================================================== */
+
+	// May.08.2018 - For iOS, return iOS local name, otherwise return cache name 
+	getDeviceName: function (deviceObj) {
+		return ((deviceObj.hasOwnProperty('advertisementData') && deviceObj.advertisementData.hasOwnProperty('kCBAdvDataLocalName')) ? deviceObj.advertisementData.kCBAdvDataLocalName : deviceObj.name)
+	},
+
 	checkDeviceCalculate: function () {
 		var t = this;	
 
@@ -2288,6 +2458,77 @@ cBleEventHandler.prototype = {
 			
 		}
 
+	},
+
+	// May.03.2018 - testing for multiple writing
+	writingTest: async function() {		// async
+		var t = this;
+
+		var serviceAddress1 =	t.startNotification_service;
+		var characteristicsAddress1 = t.startNotification_char1;
+
+		var service1 = evothings.ble.getService(t.targetDeviceObj, serviceAddress1);
+		var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);
+
+		let counter = 0;
+		t.infiniteWritingTestStart = true;
+		/*
+		var writeTester = setInterval(async () => {
+			counter++;
+			try {
+				var result = await t.writeValue(characteristics1, new Uint32Array([12]));
+				console.log('['+ counter +'] Writing 12 is done...');
+			} catch (err) {
+				console.log('Error in Testing Writing: ' + err);
+				clearInterval(writeTester);
+			}
+		}, 50);
+		*/
+
+		// Testing 1 by 1
+		var timeoutFcn = function () {
+			return new Promise((resolve) => {
+				setTimeout(() => { 
+					console.log('['+ counter +'] Waited...'); 
+					resolve(true);
+				}, 2000);
+			});
+		}
+		
+		while(t.infiniteWritingTestStart) {
+
+			let valueToSend = 12 + counter;
+			counter++;
+			if(valueToSend > 254) counter = 0;
+
+			try {
+				await t.writeValue(characteristics1, new Uint32Array([valueToSend]));
+				await timeoutFcn();
+				console.log('['+ counter +'] Writing is done...');
+			} catch (err) {
+				console.log('Error in Testing Writing: ' + err);
+				clearInterval(writeTester);
+			}
+		}
+		
+
+		// Testing No waiting for result
+		/*
+		let promiseArr = [];
+		for(var i = 0; i < 10000; i++) {
+			let valueToSend = 12 + i;
+			promiseArr.push(t.writeValue(characteristics1, new Uint32Array([valueToSend])));
+		}
+
+		Promise.all(promiseArr)
+		.then(() => {
+			console.log('All done Testing Writing...');
+		})
+		.catch((err) => {
+			console.log('Error in Testing Writing: ' + err);
+		});
+		*/
+		
 	}
 
 

@@ -87,15 +87,29 @@ cBleEventHandlerBG.prototype = {
 
 	},
 
-	notifyDevice_AppOnBG: function () {
+	// iOS
+	notifyDevice_AppOnBG_iOS: function () {
 
 		callBleEventHandler.startReset(7);
 
 	},
 
-	notifyDevice_AppOnFG: function () {
+	notifyDevice_AppOnFG_iOS: function () {
 
 		callBleEventHandler.startReset(8);
+
+	},
+
+	// Android
+	notifyDevice_AppOnBG_android: function () {
+
+		callBleEventHandler.startReset(9);
+
+	},
+
+	notifyDevice_AppOnFG_android: function () {
+
+		callBleEventHandler.startReset(10);
 
 	},
 

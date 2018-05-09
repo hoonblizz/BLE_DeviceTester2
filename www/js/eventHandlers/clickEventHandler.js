@@ -61,18 +61,18 @@ cClickEventHandler.prototype = {
 	      }
 	    },
 	    {
-	      text: 'Reset and Connect',
+	      text: 'Reset Name and Connect',
 	      onClick: function () {
 
 	      	var waitingTime = 1000;
-
-	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address deleted: ' + localStorage["deviceMacAddress"]);
-	      	localStorage["deviceMacAddress"] = '';
+	      	
+	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device Name deleted: ' + localStorage["deviceName"]);
+	      	console.log('Reset only Name saved: ' + localStorage["deviceName"]);
+	      	localStorage["deviceName"] = '';
 
 	      	callViewHandler.clear_subscription();	// Mar.22.2018 - Clear subscription data list
-	      	callViewHandler.display_saved_device_address('');	// Mar.22.2018 - Clear 
-					callViewHandler.display_deviceName('');
-
+					callViewHandler.display_deviceName('');	// Mar.22.2018 - Clear 
+					
 	      	if(callBleEventHandler.targetDeviceObj) {
 	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
 	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
@@ -89,6 +89,38 @@ cClickEventHandler.prototype = {
 	        
 	      }
 	    },
+	    /*
+	    {
+	      text: 'Reset All and Connect',
+	      onClick: function () {
+
+	      	var waitingTime = 1000;
+	      	
+	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address and name deleted...');
+	      	console.log('Reset All saved...');
+	      	localStorage["deviceName"] = '';
+	      	localStorage["deviceMacAddress"] = '';
+
+	      	callViewHandler.clear_subscription();	// Mar.22.2018 - Clear subscription data list
+					callViewHandler.display_deviceName('');	// Mar.22.2018 - Clear 
+					
+	      	if(callBleEventHandler.targetDeviceObj) {
+	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
+	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+	      			waitingTime = 3000;
+	      		}
+	      	}
+	      	myApp.showPreloader('Please wait...');
+
+	      	setTimeout(() => {
+	      		myApp.hidePreloader();
+	      		callBleEventHandler.startBLEProcess();
+	      	}, waitingTime);
+	        
+	        
+	      }
+	    },
+	    */
 	    {
 	      text: 'Disconnect',
 	      onClick: function () {
@@ -271,6 +303,22 @@ cClickEventHandler.prototype = {
 	      onClick: function () {
 	        if(callBleEventHandler.targetDeviceObj) {
 			      callBleEventHandler.writeTTB();
+			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	      }
+	    },
+	    {
+	      text: 'Start Infinite Writing',
+	      onClick: function () {
+	        if(callBleEventHandler.targetDeviceObj) {
+			      callBleEventHandler.writingTest();
+			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	      }
+	    },
+	    {
+	      text: 'Stop Infinite Writing',
+	      onClick: function () {
+	        if(callBleEventHandler.targetDeviceObj) {
+			      callBleEventHandler.infiniteWritingTestStart = false;
 			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
