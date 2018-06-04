@@ -69,6 +69,8 @@ cClickEventHandler.prototype = {
 	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device Name deleted: ' + localStorage["deviceName"]);
 	      	console.log('Reset only Name saved: ' + localStorage["deviceName"]);
 	      	localStorage["deviceName"] = '';
+	      	localStorage["deviceMacAddress"] = ''; 				// Jun.01.2018 - To connect to other device?? Issue?
+	      	callBleEventHandler.targetDeviceObj = null;		// Jun.01.2018 - For Android
 
 	      	callViewHandler.clear_subscription();	// Mar.22.2018 - Clear subscription data list
 					callViewHandler.display_deviceName('');	// Mar.22.2018 - Clear 
@@ -381,6 +383,7 @@ cClickEventHandler.prototype = {
 	  });
 
 	  // Jan.10.2018 - For exporting battery data
+	  /*
 	  $$('.button#batteryTester_export_email').on('click', function (e) {
 
 	  	console.log('File -> Email: ' + callBleEventHandler.batteryTestingData.length);
@@ -395,6 +398,7 @@ cClickEventHandler.prototype = {
 	  	callDatalogHandler.mergeCSVFile(callBleEventHandler.batteryTestingData_fileName, callDatalogHandler.createCSVDataString_batteryTester());
 	  	
 	  });
+	  */
 
 	},
 
