@@ -365,6 +365,7 @@ cDatalogHandler.prototype = {
 	createCSVFile_export: function (fileName, csvContent, emailSubject) {
 
 		var t = this;
+		var fileCreatedEntry;
 
 		//console.log('Starting Export process...');
 
@@ -377,9 +378,12 @@ cDatalogHandler.prototype = {
 			console.log('Writing file done');
 			return t.file_writeFile(fileEntry, csvContent);
 		})
-		//.then(function(fileEntry){
-		//	return t.file_readFile(fileEntry);
-		//})
+		/*
+		.then(function(fileEntry){
+			fileCreatedEntry = fileEntry;
+			return t.file_readFile(fileCreatedEntry);
+		})
+		*/
 		.then(function(fileEntry){
 
 			console.log('\n\nCheck once again for File Entry: \n' + JSON.stringify(fileEntry));
@@ -394,11 +398,16 @@ cDatalogHandler.prototype = {
 
 	file_requestFileSystem: function () {
 		return new Promise(function(resolve, reject){
-			window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, function (fs) {
+			// June.11.2018 - Added to make Android work
+			//var fileSystem = (myApp.device.os === 'android' || myApp.device.os === 'Android') ? window.TEMPORARY : LocalFileSystem.PERSISTENT;
+			var fileSystem = LocalFileSystem.PERSISTENT;
+
+			window.requestFileSystem(fileSystem, 0, function (fs) {
 				resolve(fs);
 			}, function(err){	
 		  	reject(err);
 			});
+
 		});	
 	},
 
@@ -457,11 +466,13 @@ cDatalogHandler.prototype = {
 		});
 	},
 
+	// See config.xml. '<preference name="AndroidPersistentFileLocation" value="Compatibility" />' is necessary.
 	file_sendEmail: function (fileEntry, emailSubject) {
 
 		var t = this;
 
-		console.log('\nGenerated path: \n' + fileEntry.nativeURL);
+		console.log('Generated path: ' + fileEntry.nativeURL);
+		//console.log('File Content is: ' + fileContent);
 
 		var attachmentLocationArray = [];
 		if(fileEntry.nativeURL) attachmentLocationArray.push(fileEntry.nativeURL)

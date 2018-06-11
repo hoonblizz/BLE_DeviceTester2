@@ -90,26 +90,34 @@ cBleEventHandlerBG.prototype = {
 	// iOS
 	notifyDevice_AppOnBG_iOS: function () {
 
-		callBleEventHandler.startReset(7);
+		callBleEventHandler.startReset(7, 3, true)
+		.then(() => { console.log('App on BG [iOS] write is done: ' + 7); })
+		.catch((err) => { console.log(err); });
 
 	},
 
 	notifyDevice_AppOnFG_iOS: function () {
 
-		callBleEventHandler.startReset(8);
+		callBleEventHandler.startReset(8, 3, true)
+		.then(() => { console.log('App on FG [iOS] write is done: ' + 8); })
+		.catch((err) => { console.log(err); });
 
 	},
 
 	// Android
 	notifyDevice_AppOnBG_android: function () {
 
-		callBleEventHandler.startReset(9);
+		callBleEventHandler.startReset(9, 3, true)
+		.then(() => { console.log('App on BG [Android] write is done: ' + 9); })
+		.catch((err) => { console.log(err); });
 
 	},
 
 	notifyDevice_AppOnFG_android: function () {
 
-		callBleEventHandler.startReset(10);
+		callBleEventHandler.startReset(10, 3, true)
+		.then(() => { console.log('App on FG [Android] write is done: ' + 10); })
+		.catch((err) => { console.log(err); });
 
 	},
 

@@ -25,13 +25,12 @@ var bgTestingInterval = 0;	// May.03.2018 - Testing for BG
 var datalogNotificationDone = new CustomEvent('datalogNotificationDone'); // Mar.07.2018 - Added to track of datalog completed
 
 document.addEventListener("deviceready", onDeviceReady, false);
-function onDeviceReady(){
+function onDeviceReady() {
 
   console.log('\n********************\nDevice Ready' + '\n********************\n');
 
   callBleEventHandler.loadSkinEnv();
   callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, callBleEventHandler.currentEnvironment);
-  callViewHandler.display_ttb_uv1(callBleEventHandler.ttb_uv1);
   
   // init events
   callClickHandler.init();
@@ -41,26 +40,19 @@ function onDeviceReady(){
   
   BackgroundFetch = window.BackgroundFetch;
 
-  // For iOS, now uses this.
+  // For newer iOS, now uses this.
+  // Whether its connected or not, disconnect then connect
   document.addEventListener("active", () => {
 
     appBGFG = 8;
     console.log('Foreground (Active): ' + appBGFG + ', wait_then_connect_interval: ' + callBleEventHandler.wait_then_connect_interval);
 
-    var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
-
-    if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-      //callBleBGEventHandler.notifyDevice_AppOnFG_iOS();
-    }
-
     callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
 
     // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
-    //if(callBleEventHandler.wait_then_connect_interval == 0) {
-      setTimeout(function () {
-        callBleEventHandler.startBLEProcess();
-      }, 5000);
-    //}
+    setTimeout(function () {
+      callBleEventHandler.startBLEProcess();
+    }, 5000);
 
   }, false);
 
@@ -74,34 +66,30 @@ function onDeviceReady(){
 
       var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
-      if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-
-      	if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-      		//callBleBGEventHandler.notifyDevice_AppOnFG_android();
-      	} else {
-      		//callBleBGEventHandler.notifyDevice_AppOnFG_iOS();
-      	}
-        
-      }
-
       // May.03.2018 - For Android, always gets connected
+      // For iOS, disconnect then reconnect
       if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-      	// Do nothing?
-      } else {
-      	callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+    		
+    		if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
+    			callBleBGEventHandler.notifyDevice_AppOnFG_android();
+	    		callBleEventHandler.displaySubscription();		// June.07.2018 - Resume displaying Subscription
+	    		callBleEventHandler.runAppTimer();						// June.11.2018 - Continue running
+    		} else {
+
+    			// What if it's disconnected somehow???
+
+    		}
+    		
+    		
+    	} else {
+    		callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
 
 	      // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
 	      setTimeout(function () {
 	        callBleEventHandler.startBLEProcess();
 	      }, 5000);
-      }
-      
+    	}
 
-      /*
-      if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-        BackgroundFetch.stop();
-      }
-      */
       
     }, 0);
   }, false); 

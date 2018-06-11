@@ -9,7 +9,8 @@ cViewHandler.prototype = {
 	ble_status_msg: function (targetElement, msgString) {
 		// Check how many messages
     var totalMessages = $$(targetElement).children('.mainMessage').length;
-    //if(totalMessages > 150) $$('#BLE-Status').html('');
+    //console.log('\n\nChildren picker ['+ targetElement +']: \n' + JSON.stringify($$(targetElement).children('.mainMessage')));
+    if(totalMessages > 200) $$('#BLE-Status').empty();
 
     // Time stamp
     var d = new Date();
@@ -38,29 +39,7 @@ cViewHandler.prototype = {
 		$$('#ttb_sent').html(ttbSentArr[0] + ' M ' + ttbSentArr[1] + ' S <-- ' + ttbVal + ' S');
 	},
 
-	display_ttb_uv1: function (ttbVal) {
-		var t = this;
-		var ttbArr;
-		if(callBleEventHandler.ss_fromDevice > 0) {
-			
-			// Mar.28.2018 - Pick Latest UV
-			var uvValue = 1;
-			var uvGT0_arr = callBleEventHandler.uvTrackerArr.filter((el) => { return el > 0; });
-			if(uvGT0_arr.length > 0) uvValue = uvGT0_arr[uvGT0_arr.length - 1];
 
-			var newTTB = parseInt(ttbVal / uvValue);
-			ttbArr = t.secondsToMinutes(newTTB);
-			
-			$$('#ttb-uv1').html(ttbArr[0] + ' M ' + ttbArr[1] + ' S  (' + ttbVal + ' S / '+ uvValue +' UVI)');
-			
-			//ttbArr = t.secondsToMinutes(ttbVal);
-			//$$('#ttb-uv1').html(ttbArr[0] + ' M ' + ttbArr[1] + ' S  (' + ttbVal + ' S)');
-		} else {
-			ttbArr = t.secondsToMinutes(ttbVal);
-			$$('#ttb-uv1').html(ttbArr[0] + ' M ' + ttbArr[1] + ' S  (' + ttbVal + ' S) No SS');
-		}
-		
-	},
 
   display_realtimeResult: function (char1Val, char2Val, char3Val, char4Val, 
                                     char5Val, char6Val, char7Val, char8Val, 
@@ -348,6 +327,12 @@ cViewHandler.prototype = {
   display_subscription: function (dataObjArray) {
     
     var data0, data1, data2, data3, data4, data5, data7;
+    let timeStamp, timeString;
+
+    // June.11.2018 - Control # of messages to display
+    var totalMessages = $$('#subscription-data').children('#subscription-data-list').length;
+    if(totalMessages > 50) $$('#subscription-data').empty();
+
 
     dataObjArray.map(function(el){
       switch(el.id) {
@@ -361,15 +346,38 @@ cViewHandler.prototype = {
       }
     });
 
+    var addZero = function (num) {
+    	if(num < 10) return ('0' + num);
+    	else return num;
+    }
+
+    // June.07.2018 - Picking up the time.
+    for(var i = 0; i < dataObjArray.length; i++) {
+    	if(dataObjArray[i].hasOwnProperty('createdEpoch')) {
+    		timeStamp = dataObjArray[i].createdEpoch;
+    		break;
+    	}
+    }
+
+    if(timeStamp) {
+    	var timeHere = new Date(timeStamp);
+    	timeString = addZero(timeHere.getHours()) + ':' + addZero(timeHere.getMinutes()) + ':' + addZero(timeHere.getSeconds());
+    } else {
+    	timeString = '--:--:--';
+    }
+
+
+    let fontSize1 = '12px'; let fontSize2 = '12px';
     HTMLBuilder = '' +
-      '<div id="subscription-data-list" class="row no-gutter" style="color: black; font-size: 3.5vw;">'+
-        '<div class="col-auto">'+ ((data0) ? data0 : '--') +'</div>'+ // uv
-        '<div class="col-auto">'+ ((data1) ? data1 : '--') +'</div>'+ // temp
-        '<div class="col-auto">'+ ((data2) ? data2 : '--') +'</div>'+ // battery
-        '<div class="col-auto">'+ ((data3) ? data3 : '--') +'</div>'+ // ttb
-        '<div class="col-auto">'+ ((data4) ? data4 : '--') +'</div>'+ // ss
-        '<div class="col-auto">'+ ((data5) ? data5 : '--') +'</div>'+ // first time since battery
-        '<div class="col-auto">'+ ((data7) ? data7 : '--') +'</div>'+ // device shaken
+      '<div id="subscription-data-list" class="row no-gutter" style="color: black;">'+
+      	'<div class="col-auto" style="font-size: '+ fontSize1 +';">'+ timeString +'</div>'+ // time
+        '<div class="col-auto" style="padding-left: 15px; font-size: '+ fontSize2 +';">'+ ((data0) ? data0 : '--') +'</div>'+ // uv
+        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data1) ? data1 : '--') +'</div>'+ // temp
+        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data2) ? data2 : '--') +'</div>'+ // battery
+        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data3) ? data3 : '--') +'</div>'+ // ttb
+        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data4) ? data4 : '--') +'</div>'+ // ss
+        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data5) ? data5 : '--') +'</div>'+ // first time since battery
+        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data7) ? data7 : '--') +'</div>'+ // device shaken
       '</div>';
 
     $$('#subscription-data').prepend(HTMLBuilder);
@@ -378,6 +386,31 @@ cViewHandler.prototype = {
     var a = d.getHours() + ' : ' + d.getMinutes() + ' : ' + d.getSeconds() + ' : ' + d.getMilliseconds();
     $$('#subscription-time').html(a);
 
+  },
+
+  display_subscription_disconnectionState: function () {
+
+  	var addZero = function (num) {
+    	if(num < 10) return ('0' + num);
+    	else return num;
+    }
+
+    var timeNow = new Date();
+    var timeString = addZero(timeNow.getHours()) + ':' + addZero(timeNow.getMinutes()) + ':' + addZero(timeNow.getSeconds());
+
+  	var HTMLBuilder = '' +
+      '<div id="subscription-data-list" class="row no-gutter" style="color: red; font-size: 12px;">'+
+      	'<div class="col-auto">'+ timeString +'</div>'+ // time
+        '<div class="col-auto" style="padding-left: 15px;">'+ 'DC' +'</div>'+ // uv
+        '<div class="col-auto">'+ '--'+'</div>'+ // temp
+        '<div class="col-auto">'+ '--' +'</div>'+ // battery
+        '<div class="col-auto">'+ '--' +'</div>'+ // ttb
+        '<div class="col-auto">'+ '--' +'</div>'+ // ss
+        '<div class="col-auto">'+ '--' +'</div>'+ // first time since battery
+        '<div class="col-auto">'+ '--' +'</div>'+ // device shaken
+      '</div>';
+
+    $$('#subscription-data').prepend(HTMLBuilder);
   },
 
   clear_subscription: function () {

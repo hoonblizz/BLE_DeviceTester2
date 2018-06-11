@@ -18,6 +18,8 @@
 	Issue:
 	- Because its keep switching between addresses, in ios, this message might appear,
 	'[CoreBluetooth] API MISUSE: Cancelling connection for unused peripheral , Did you forget to keep a reference to it?'
+	
+	June.11.2018 - Removed all ttb_uv1 methods. Don't need it.
 
 */
 
@@ -188,7 +190,7 @@ function cBleEventHandler() {
 	this.uv_fromDevice = 0;
 	this.ttb_fromDevice = 0;
 	this.ss_fromDevice = 0;
-	this.ss_applied_signal = false;		// Mar.29.2018 - For 'run a function only ONCE when SS is applied'
+	//this.ss_applied_signal = false;		// Mar.29.2018 - For 'run a function only ONCE when SS is applied'
 
 	// Mar.16.2018 - App timer interval
 	this.appTimerInterval = 0;
@@ -203,10 +205,14 @@ function cBleEventHandler() {
 	// Push when UV / Skin / Environment changes
 	this.initTTBTrackArr = [];
 
-	// Mar.23.2018 - TTB when uv 1 value. Save it in local.
-	this.ttb_uv1 = 0;
-
 	this.infiniteWritingTestStart = false;
+
+	// June.07.2018 - Global to make BG -> FG work
+	this.subscriptionDataArrCurr = [];
+	this.subscriptionDataArrPrev = [];
+
+	// June.11.2018 - Track if TTB is over. It'll be reset when reset TTB or SS.
+	this.ttbIsOver = false;
 
 }
 
@@ -243,13 +249,36 @@ cBleEventHandler.prototype = {
 				if(deviceInfoString && deviceInfoString !== '') {	// Device info exists, lets directly connect
 
 					var deviceObj = JSON.parse(deviceInfoString);
-					//callViewHandler.ble_status_msg('#BLE-Status', 'Registered device Info Found: ' + deviceInfoString);
 
 					// Mar.22.2018 - Display pre-stored device object
 					callViewHandler.display_saved_device_address(deviceObj.address);
 					if(defaultName && defaultName !== '') callViewHandler.display_deviceName(defaultName);
 					else callViewHandler.display_deviceName(deviceObj.name);
 
+
+					callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to saved device: ' + deviceObj.name + ' [' + deviceObj.address + ']');
+					console.log('Connecting to saved device: ' + deviceObj.name + ' [' + deviceObj.address + ']');
+
+					// Test for bonded devices (only for Android)
+					/*
+					evothings.ble.getBondedDevices((devices) => {
+		        console.log('Bonded devices: ' + JSON.stringify(devices));
+		      }, (err) => {
+		        console.log('getBondedDevices error: ' + err);
+		      }, { serviceUUIDs: [t.serviceUUID] });
+
+		      evothings.ble.getBondState({ address: deviceObj.address }, (res) => {
+		        console.log('Bond state of ['+ deviceObj.name +']: ' + res);
+		        if(res === 'unbonded') {
+		        	// Try bonding
+		        	evothings.ble.bond( { address: deviceObj.address }, (res) => { 
+		        		console.log('Try bonding result : ' + res); 
+		        	}, (err) => { console.log('bond error: ' + err); });
+		        }
+		      }, (err) => {
+		        console.log('getBondState error: ' + err);
+		      }, { serviceUUIDs: [t.serviceUUID] });
+					*/
 					t.startConnecting(deviceObj);
 
 				} else {
@@ -871,6 +900,8 @@ cBleEventHandler.prototype = {
 		callViewHandler.ble_status_msg('#BLE-Status', 'Disconnecting...');
 		callViewHandler.display_tester_deviceStatus('Disconnected');
 		callViewHandler.display_connected_device_address('');	// Mar.22.2018
+
+		callViewHandler.display_subscription_disconnectionState()	// June.07.2018 - Display disconnected state on subscription
 		console.log('Disconnecting ');
 		/*
 		cordova.plugins.notification.local.schedule({
@@ -1668,7 +1699,7 @@ cBleEventHandler.prototype = {
 
     var data0_prev, data1_prev, data2_prev, data3_prev, data4_prev;
     var dataObjArrayPrev = [];
-    var dataObjArrayCurr = [];
+    var dataObjArrayCurr = [];		// June.07.2018 - Now we use global var
 
   	// ================================================================================
   	// UV 
@@ -1677,25 +1708,21 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Uint8');
 			console.log('[Subscription] UV data: ' + data);
 
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 0,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 
 			t.uv_fromDevice = parseInt(data / 10);
 
 			// Compare with previous UV then decide whether to recalculate or not
 			t.uvTrackerArr.push(t.uv_fromDevice);
 			
-			// Mar.29.2018 - when SS is applied, and UV changes, Do division based on latest UV value.
-			if(t.ss_fromDevice < 1) {
-
-			} else {
-				callViewHandler.display_ttb_uv1(t.ttb_uv1); 
-			}
-
 			t.appCalculationNeeded();
 
 			t.initTTBTrackArr.push(t.getLatestInitTTB());	// after recalculation is done, stack new initTTB
@@ -1711,12 +1738,15 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Int8');
 			console.log('[Subscription] Temp data: ' + data);
 			
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 1,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 			
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 
 			//allDataColected(argObj);
 
@@ -1730,12 +1760,15 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Uint32');
 			console.log('[Subscription] Battery data: ' + data);
 			
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 2,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 			
 			//allDataColected(argObj);
 
@@ -1749,116 +1782,78 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Uint32');
 			console.log('[Subscription] TTB data: ' + data);
 			
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 3,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 
 			// Mar.29.2018 - Will display what would happen to variables
 			var logText = '\n\n================================================' +
 										'\nTTB Received:    ' + data + 
 										'\nPrevioud TTB:    ' + t.ttb_fromDevice + 
 										'\nCurrent SS:      ' + t.ss_fromDevice + 
-										'\nCurrent TTB_1:   ' + t.ttb_uv1 + 
 										'\nUV Data Stacked: ' + t.uvTrackerArr +
 										'\nSetting Tracked: ' + '[' + t.prevSkintype + ', '+ t.prevEnvironment +'] => [' + t.currentSkintype + ', '+ t.currentEnvironment +']' +
 										'\n------------------------------------------------';
 
-			t.ttb_fromDevice = data;
+			// June.11.2018 - 50000 means 'TTB is over'
+			if(data < 50000) {
 
-			// Mar.20.2018 - If this is after SS applied, don't recalculate
-			// Mar.21.2018 - When SS is on, TTB value is based on UV 1 value. Do division if UV > 0
-			// Mar.22.2018 - Now TTB from device is always 'calculated' value. Just use it
-			// Mar.23.2018 - Try previous method. 
-			// Mar.29.2018 - now order is SS -> TTB. new t.ss_applied_signal is added.
+				t.ttb_fromDevice = data;
 
-			if(t.ss_applied_signal) {
-
-				t.ss_applied_signal = false;
-
-				t.ttb_uv1 = t.ttb_fromDevice;	
-				t.saveSkinEnv();
-
-				callViewHandler.display_ttb_uv1(t.ttb_uv1);	// display and save
-
-				logText += '\n>> SS is newly applied. Saving TTB_1.';
-
-			} else {
+				// Mar.20.2018 - If this is after SS applied, don't recalculate
+				// Mar.21.2018 - When SS is on, TTB value is based on UV 1 value. Do division if UV > 0
+				// Mar.22.2018 - Now TTB from device is always 'calculated' value. Just use it
+				// Mar.23.2018 - Try previous method. 
+				// Mar.29.2018 - now order is SS -> TTB. new t.ss_applied_signal is added.
+				
 
 				if(t.ss_fromDevice < 1) {
 
-					// Mar.26.2018 - Another condition: When no SS, reset ttb_uv1 with the value from device
-					t.ttb_uv1 = t.ttb_fromDevice;	
-					t.saveSkinEnv();
-
-					callViewHandler.display_ttb_uv1(t.ttb_uv1);	// display and save
-
 					t.appCalculationNeeded();
 
-					logText += '\n>> No SS, Saving TTB_1 <- TTB';
+					logText += '\n>> No SS, Use App Calculation';
 					
 				} else {
 
-					// Mar.23.2018 - Request
-					if(t.ttb_uv1 && t.ttb_uv1 > 0) {
-						
-						var uvValue;
-						var uvGT0_arr = t.uvTrackerArr.filter((el) => {
-							return el > 0;
-						});
-						if(uvGT0_arr.length > 0) uvValue = uvGT0_arr[uvGT0_arr.length - 1];
-						else uvValue = 1;
+					var uvValue;
+					var uvGT0_arr = t.uvTrackerArr.filter((el) => { return el > 0; });		// picking UV > 0
+					if(uvGT0_arr.length > 0) uvValue = uvGT0_arr[uvGT0_arr.length - 1];
+					else uvValue = 1;
 
-						console.log('[Subscription] TTB data [SS applied]: ttb_uv1 Exists...' + (parseInt(t.ttb_fromDevice / uvValue)) + ' = ' + t.ttb_fromDevice + ' / ' + uvValue);
+					logText += ('\n>> SS is there: ' + (parseInt(t.ttb_fromDevice / uvValue)) + ' = ' + t.ttb_fromDevice + ' / ' + uvValue);
 
-						t.ttb_fromDevice = parseInt(t.ttb_fromDevice / uvValue);
-						
-						// Mar.26.2018 - When there's already ttb_uv1 value, don't save. 
-						callViewHandler.display_ttb_uv1(t.ttb_uv1);
-
-						logText += '\n>> SS exists and TTB_1 exists. Not Saving TTB_1.';
-					
-						// Mar.23.2018 - use prev & curr skin, env settings to calculate
-						//t.appCalculationNeeded_skinEnv(t.prevSkintype, t.prevEnvironment, t.currentSkintype, t.currentEnvironment, 'device');
-						
-					} else {
-
-						t.ttb_uv1 = t.ttb_fromDevice;
-						callViewHandler.display_ttb_uv1(t.ttb_uv1);
-						t.saveSkinEnv();
-
-						//console.log('[Subscription] TTB data [SS applied]: ttb_uv1 DNE...');
-
-						logText += '\n>> SS exists but TTB_1 does not exist. Saving TTB_1.';
-
-					}
+					t.ttb_fromDevice = parseInt(t.ttb_fromDevice / uvValue);
 					
 				}
-			}
-			
-			
-			logText += ('\n------------------------------------------------' +
-									'\nCurrent TTB:     ' + t.ttb_fromDevice + 
-									'\nCurrent SS:      ' + t.ss_fromDevice + 
-									'\nCurrent TTB_1:   ' + t.ttb_uv1 + 
-									'\nUV Data Stacked: ' + t.uvTrackerArr +
-									'\n================================================\n\n\n');
-			
-			console.log(logText);
 
-			// Mar.06.2018 - This is TTB data. Update Local notification if needed
-			var id = 99;
-			var now = new Date().getTime(),
-  				sec_from_now = new Date(now + (data * 1000));
+				t.saveSkinEnv();
+				
+				logText += ('\n------------------------------------------------' +
+										'\nCurrent TTB:     ' + t.ttb_fromDevice + 
+										'\nCurrent SS:      ' + t.ss_fromDevice + 
+										'\nUV Data Stacked: ' + t.uvTrackerArr +
+										'\n================================================\n\n\n');
+				
+				console.log(logText);
 
-			if(data < 50000) {	// TTB > 0  and app in BG
-				// Mar.16.2018 - We don't want preset from app for notification. 
-			} else {
-				console.log('3: Data updated => ' + data + ', App is in ' + appBGFG);
+			} else {	
+
+				t.ttb_fromDevice = 0;
 
 				//clearInterval(t.appTimerInterval);		// Stop Timer
+				// June.11.2018 - Track TTB is over
+				t.ttbIsOver = true;
+
+				// Mar.06.2018 - This is TTB data. Update Local notification if needed
+				var id = 99;
+				var now = new Date().getTime(),
+	  				sec_from_now = new Date(now + (data * 1000));
 
 				cordova.plugins.notification.local.clear(id, function() {
 
@@ -1875,10 +1870,9 @@ cBleEventHandler.prototype = {
 				  console.log(id + ': Notification Created -> ' + data + ' s');
 
 				});
-				
+
 			}
 
-			//allDataColected(argObj);
 
 		}, function(err){
       console.log('Error in subscription characteristics4: ' + err);
@@ -1890,12 +1884,15 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Uint32');
 			console.log('[Subscription] SS data: ' + data);
 			
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 4,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 			
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 
 			//t.ss_fromDevice = data;
 			//if(t.ss_fromDevice < 1) t.ss_applied_signal = true;
@@ -1906,32 +1903,16 @@ cBleEventHandler.prototype = {
 										'\nSS Received:     ' + data + 
 										'\nPrevioud SS:     ' + t.ss_fromDevice + 
 										'\nCurrent TTB:     ' + t.ttb_fromDevice + 
-										'\nCurrent TTB_1:   ' + t.ttb_uv1 + 
 										'\nUV Data Stacked: ' + t.uvTrackerArr +
 										'\nSetting Tracked: ' + '[' + t.prevSkintype + ', '+ t.prevEnvironment +'] => [' + t.currentSkintype + ', '+ t.currentEnvironment +']' +
 										'\n------------------------------------------------';
 
 			
 			t.ss_fromDevice = data;
-			if(t.ss_fromDevice > 0) {
-				if(t.ttb_uv1 && t.ttb_uv1 > 0) t.ss_applied_signal = false;
-				else t.ss_applied_signal = true;
-			}
-			else {
-
-				// Mar.29.2018 - Reset TTB_1 when SS is over
-				t.ttb_uv1 = 0;
-				callViewHandler.display_ttb_uv1(t.ttb_uv1);
-				t.saveSkinEnv();
-				console.log('*** TTB_1 is cleared / Reset...');
-
-			}
-
 
 			logText += ('\n------------------------------------------------' +
 									'\nCurrent TTB:     ' + t.ttb_fromDevice + 
 									'\nCurrent SS:      ' + t.ss_fromDevice + 
-									'\nCurrent TTB_1:   ' + t.ttb_uv1 + 
 									'\nUV Data Stacked: ' + t.uvTrackerArr +
 									'\n================================================\n\n\n');
 
@@ -1949,9 +1930,11 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Uint8');
 			console.log('[Subscription] First Time since battery data: ' + data);
 			
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 5,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 
 			// Apr.16.2018 - If its the first time, reset saved address
@@ -1970,6 +1953,7 @@ cBleEventHandler.prototype = {
 			}
 			
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 
 			//allDataColected(argObj);
 
@@ -1983,9 +1967,11 @@ cBleEventHandler.prototype = {
     	var data = t.dataTranslation(buffer, 'Uint8');
 			console.log('[Subscription] Device shaken: ' + data);
 			
+			let timeEpoch = new Date().getTime();
 			var argObj = {
 				'id': 7,
-				'data': data
+				'data': data,
+				'createdEpoch': timeEpoch
 			}
 
 			t.deviceShaken = data;
@@ -1993,15 +1979,24 @@ cBleEventHandler.prototype = {
 			t.appCalculationNeeded();
 			
 			dataObjArrayCurr.push(argObj);
+			t.subscriptionDataArrCurr.push(argObj);  // June.07.2018 - Added
 
 			//allDataColected(argObj);
 
 		}, function(err){
       console.log('Error in subscription characteristics7: ' + err);
     });
+
+    t.displaySubscription();		// run interval
 		
 
-	  // Mike asked for this way. 
+	},
+
+	// June.07.2018 - Became a separate function
+	displaySubscription: function () {
+		var t = this;
+
+		// Mike asked for this way. 
     // Wait until certain moment then display whatever changed
     t.subscriptionTestInterval = setInterval(function(){
     		
@@ -2009,23 +2004,23 @@ cBleEventHandler.prototype = {
     	// current array length > 0
     	// length of two array different, 
     	// if length is the same, comapre each element
-    	if(dataObjArrayCurr.length > 0) {
+    	if(t.subscriptionDataArrCurr.length > 0) {
 
-    		if(dataObjArrayCurr.length !== dataObjArrayPrev.length) {
+    		if(t.subscriptionDataArrCurr.length !== t.subscriptionDataArrPrev.length) {
 
-    			callViewHandler.display_subscription(dataObjArrayCurr);
-    			dataObjArrayPrev = dataObjArrayCurr.slice();
-    			dataObjArrayCurr = [];
+    			callViewHandler.display_subscription(t.subscriptionDataArrCurr);
+    			t.subscriptionDataArrPrev = t.subscriptionDataArrCurr.slice();
+    			t.subscriptionDataArrCurr = [];
 
     		} else {
 
     			// if arrays are not identical,
-    			if(!(JSON.stringify(dataObjArrayCurr) === JSON.stringify(dataObjArrayPrev))) {
+    			if(!(JSON.stringify(t.subscriptionDataArrCurr) === JSON.stringify(t.subscriptionDataArrPrev))) {
 
     				t.userState.push(t.userStateIndex.SUB_DONE);
-    				callViewHandler.display_subscription(dataObjArrayCurr);
-    				dataObjArrayPrev = dataObjArrayCurr.slice();
-    				dataObjArrayCurr = [];
+    				callViewHandler.display_subscription(t.subscriptionDataArrCurr);
+    				t.subscriptionDataArrPrev = t.subscriptionDataArrCurr.slice();
+    				t.subscriptionDataArrCurr = [];
 
     			} else {
     				//console.log('Two arrays are identical. Not updating...');
@@ -2185,7 +2180,6 @@ cBleEventHandler.prototype = {
 		localStorage["environment_current"] = this.currentEnvironment;
 		localStorage["skin_previous"] = this.prevSkintype;
 		localStorage["environment_previous"] = this.prevEnvironment;
-		localStorage["ttb_uv1"] = this.ttb_uv1;
 
 		console.log('User Settings saved: [' + this.prevSkintype + ', '+ this.prevEnvironment +'] => [' + this.currentSkintype + ', '+ this.currentEnvironment +']');
 	},
@@ -2196,7 +2190,6 @@ cBleEventHandler.prototype = {
 		this.prevSkintype = (localStorage["skin_previous"]) ? Number(localStorage["skin_previous"]) : 0;
 		this.prevEnvironment = (localStorage["environment_previous"]) ? Number(localStorage["environment_previous"]) : 0;
 
-		this.ttb_uv1 = (localStorage["ttb_uv1"]) ? Number(localStorage["ttb_uv1"]) : 0;
 
 		console.log('User Settings loaded: [' + this.prevSkintype + ', '+ this.prevEnvironment +'] => [' + this.currentSkintype + ', '+ this.currentEnvironment +']');
 	},
@@ -2326,15 +2319,9 @@ cBleEventHandler.prototype = {
 							t.ss_fromDevice--;
 							if(t.ss_fromDevice < 0) t.ss_fromDevice = 0;
 
-							//t.updateTTB_whenSSInOn();
-
 						} else {
 							if(t.uv_fromDevice > 0 && t.ttb_fromDevice > 0) {
 								t.ttb_fromDevice--;
-								if(t.ttb_fromDevice < 0) t.ttb_fromDevice = 0;
-							}
-							else {
-								//console.log('[App Timer] UV is 0 or TTB is over: UV [' + t.uv_fromDevice + '], TTB [' + t.ttb_fromDevice + ']');
 							}
 						}
 		    	}
@@ -2439,56 +2426,6 @@ cBleEventHandler.prototype = {
 		}
 	},
 
-	// Mar.23.2018 - Added for calculation when skin and environment changes. 
-	// This method is not working if app loses track of skin, env setting. 
-	appCalculationNeeded_skinEnv: function (prevSkin, prevEnv, currSkin, currEnv, from) {
-		var t = this;
-
-		if(!t.checkDeviceCalculate()) {
-
-			if(t.ttb_uv1 && t.ttb_uv1 > 0) {
-				// get previous initial ttb with current settings
-				var ratio = t.calcWriteTTBValue(currSkin, currEnv) / t.calcWriteTTBValue(prevSkin, prevEnv);
-				
-				// Apply to current TTB and return
-				console.log('\n===========================================================' +
-										'\nTTB recalculated: ' + parseInt(t.ttb_fromDevice * ratio) + ', ratio is ' + ratio + 
-										'\nSkin, Env: [' + prevSkin + ', ' + prevEnv + '] => [' + currSkin + ', ' + currEnv + ']' +
-										'\n===========================================================');
-
-				t.ttb_fromDevice = parseInt(t.ttb_fromDevice * ratio);
-				
-				
-				// Mar.29.2018 - instead of current TTB, apply calculation on TTB_1
-				console.log('\n===========================================================' +
-										'\nTTB_1 recalculated: ' + parseInt(t.ttb_uv1 * ratio) + ', ratio is ' + ratio + 
-										'\nSkin, Env: [' + prevSkin + ', ' + prevEnv + '] => [' + currSkin + ', ' + currEnv + ']' +
-										'\n===========================================================');
-
-				t.ttb_uv1 = parseInt(t.ttb_uv1 * ratio);
-
-				callViewHandler.display_ttb_uv1(t.ttb_uv1);	// display and save
-				t.saveSkinEnv();
-
-				// Mar.23.2018 - Important! When calculation is done, reset prev settings. So when next time connected, it doesn't use prev setting.
-				// But if this function is called from 'user change setting', this should not happen.
-				/*
-				if(from === 'device') {
-					console.log('Applying Previous setting is done. Change Previous setting to current one...');
-					t.prevSkintype = t.currentSkintype;
-					t.prevEnvironment = t.currentEnvironment;
-					t.saveSkinEnv();
-				}
-				*/
-
-			} else {
-				console.log('ttb_uv1 DNE...');
-			}
-			
-		}
-
-	},
-
 	// May.03.2018 - testing for multiple writing
 	writingTest: async function() {		// async
 		var t = this;
@@ -2501,18 +2438,7 @@ cBleEventHandler.prototype = {
 
 		let counter = 0;
 		t.infiniteWritingTestStart = true;
-		/*
-		var writeTester = setInterval(async () => {
-			counter++;
-			try {
-				var result = await t.writeValue(characteristics1, new Uint32Array([12]));
-				console.log('['+ counter +'] Writing 12 is done...');
-			} catch (err) {
-				console.log('Error in Testing Writing: ' + err);
-				clearInterval(writeTester);
-			}
-		}, 50);
-		*/
+		
 
 		// Testing 1 by 1
 		var timeoutFcn = function () {
