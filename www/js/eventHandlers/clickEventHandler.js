@@ -19,7 +19,7 @@ cClickEventHandler.prototype = {
 	    {
 	      text: 'Initiate OTA',
 	      onClick: function () {
-	      	if(callBleEventHandler.targetDeviceObj) {
+	      	if(mBLE.targetDeviceObj) {
 			      myApp.modal({
 			        title: 'Initiate OTA?',
 			        text: '',
@@ -27,7 +27,7 @@ cClickEventHandler.prototype = {
 			        {
 			          text: 'Yes',
 			          onClick: function () {  
-			          	callBleEventHandler.startOTA();
+			          	mBLE.startOTA();
 			          }
 			        },
 			        {
@@ -36,21 +36,21 @@ cClickEventHandler.prototype = {
 			        ]
 			      });
 
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
 	    {
 	      text: 'Check Password',
 	      onClick: function () {
 	      	myApp.modal({
-		        title: callBleEventHandler.userPassword,
+		        title: mBLE.userPassword,
 		        text: 'is your current password',
 		        verticalButtons: true,
 		        buttons: [
 		        {
 		          text: 'Change Password',
 		          onClick: function () {  
-		          	callBleEventHandler.generatePassword();
+		          	mBLE.generatePassword();
 		          }
 		        },
 		        {
@@ -64,86 +64,72 @@ cClickEventHandler.prototype = {
 	      text: 'Reset Name and Connect',
 	      onClick: function () {
 
-	      	var waitingTime = 1000;
+	      	if(mBLE.getConState() === mBLE.conStateIndex.DISCONNECTED) {
+	      		var waitingTime = 1000;
 	      	
-	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device Name deleted: ' + localStorage["deviceName"]);
-	      	console.log('Reset only Name saved: ' + localStorage["deviceName"]);
-	      	localStorage["deviceName"] = '';
-	      	localStorage["deviceMacAddress"] = ''; 				// Jun.01.2018 - To connect to other device?? Issue?
-	      	callBleEventHandler.targetDeviceObj = null;		// Jun.01.2018 - For Android
+		      	vBLE.ble_status_msg('#BLE-Status', 'Registered device Name deleted: ' + localStorage["deviceName"]);
+		      	console.log('Reset only Name saved: ' + localStorage["deviceName"]);
+		      	localStorage["deviceName"] = '';
 
-	      	callViewHandler.clear_subscription();	// Mar.22.2018 - Clear subscription data list
-					callViewHandler.display_deviceName('');	// Mar.22.2018 - Clear 
-					
-	      	if(callBleEventHandler.targetDeviceObj) {
-	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
-	      			waitingTime = 3000;
-	      		}
-	      	}
-	      	myApp.showPreloader('Please wait...');
+		      	// Jun.01.2018 - To connect to other device?? Issue?
+		      	// June.26.2018 - For iOS, don't delete address. 
+		      	if(myApp.device.os === 'android' || myApp.device.os === 'Android') localStorage["deviceMacAddress"] = '';
 
-	      	setTimeout(() => {
-	      		myApp.hidePreloader();
-	      		callBleEventHandler.startBLEProcess();
-	      	}, waitingTime);
+		      	mBLE.targetDeviceObj = null;		// Jun.01.2018 - For Android
+
+		      	vBLE.clear_subscription();	// Mar.22.2018 - Clear subscription data list
+						vBLE.display_deviceName('');	// Mar.22.2018 - Clear 
+						
+		      	if(mBLE.targetDeviceObj) {
+		      		if(mBLE.getConState() !== mBLE.conStateIndex.DISCONNECTED) {
+		      			mBLE.disconnectDevice(mBLE.targetDeviceObj);
+		      			waitingTime = 3000;
+		      		}
+		      	}
+		      	myApp.showPreloader('Please wait...');
+
+		      	setTimeout(() => {
+		      		myApp.hidePreloader();
+		      		mBLE.startBLEProcess();
+		      	}, waitingTime);
 	        
+	      	} else {
+	      		myApp.modal({
+			        title: '',
+			        text: 'Disconnect QSun and try again',
+			        verticalButtons: true,
+			        buttons: [
+			        {
+			          text: 'Ok'
+			        }
+			        ]
+			      });
+	      	}
+	      	
 	        
 	      }
 	    },
-	    /*
-	    {
-	      text: 'Reset All and Connect',
-	      onClick: function () {
-
-	      	var waitingTime = 1000;
-	      	
-	      	callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address and name deleted...');
-	      	console.log('Reset All saved...');
-	      	localStorage["deviceName"] = '';
-	      	localStorage["deviceMacAddress"] = '';
-
-	      	callViewHandler.clear_subscription();	// Mar.22.2018 - Clear subscription data list
-					callViewHandler.display_deviceName('');	// Mar.22.2018 - Clear 
-					
-	      	if(callBleEventHandler.targetDeviceObj) {
-	      		if(callBleEventHandler.conState[callBleEventHandler.conState.length - 1] !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-	      			callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
-	      			waitingTime = 3000;
-	      		}
-	      	}
-	      	myApp.showPreloader('Please wait...');
-
-	      	setTimeout(() => {
-	      		myApp.hidePreloader();
-	      		callBleEventHandler.startBLEProcess();
-	      	}, waitingTime);
-	        
-	        
-	      }
-	    },
-	    */
 	    {
 	      text: 'Disconnect',
 	      onClick: function () {
 	      	evothings.ble.stopScan();
-	        if(callBleEventHandler.targetDeviceObj) {
+	        if(mBLE.targetDeviceObj) {
 						
 	        	// Clear intervals if needed
 	        	
-	          callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+	          mBLE.disconnectDevice(mBLE.targetDeviceObj);
 
-	          //callViewHandler.ble_status_msg('#BLE-Status', 'Registered device address deleted: ' + localStorage["deviceMacAddress"]);
+	          //vBLE.ble_status_msg('#BLE-Status', 'Registered device address deleted: ' + localStorage["deviceMacAddress"]);
 	        	//localStorage["deviceMacAddress"] = '';
 
-	        } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	        } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
 	    {
 	      text: 'Connect (or Scan)',
 	      onClick: function () {
-	        //callBleEventHandler.startScanning();
-	        callBleEventHandler.startBLEProcess();
+	        //mBLE.startScanning();
+	        mBLE.startBLEProcess();
 	      }
 	    }
 	    ];
@@ -162,9 +148,9 @@ cClickEventHandler.prototype = {
 	    {
 	      text: 'Download Datalog',
 	      onClick: function () {
-	      	if(callBleEventHandler.targetDeviceObj) {
-			    	callBleEventHandler.startNotification();
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	      	if(mBLE.targetDeviceObj) {
+			    	mBLE.startNotification();
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    }
 	    ]
@@ -180,29 +166,31 @@ cClickEventHandler.prototype = {
 			function clickEvent(j) {
         return function() {
 
-          var prevSkinType = callBleEventHandler.currentSkintype;
-	        callBleEventHandler.currentSkintype = j;
+          var prevSkinType = mBLE.currentSkintype;
+	        mBLE.currentSkintype = j;
 
-	        if(callBleEventHandler.targetDeviceObj) {
+	        if(mBLE.targetDeviceObj) {
 	        	// Mar.19.2018 - Recalculate for local TTB display (without device data)
-			      callBleEventHandler.writeTTB()
+	        	// June.21.2018 - changed
+	        	var inputVal = mBLE.calcWriteTTBValue(mBLE.currentSkintype, mBLE.currentEnvironment);
+			      mBLE.writeTTB(inputVal, 3, true)
 			      .then(() => {
 
-			      	callBleEventHandler.prevSkintype = prevSkinType; // Mar.23.2018 - Need previous settings 
-			      	callViewHandler.display_skinEnv(j, callBleEventHandler.currentEnvironment);
-			      	callBleEventHandler.saveSkinEnv();
+			      	mBLE.prevSkintype = prevSkinType; // Mar.23.2018 - Need previous settings 
+			      	vBLE.display_skinEnv(j, mBLE.currentEnvironment);
+			      	mBLE.saveSkinEnv();
 
 			      	// Mar.23.2018 - Skin and Env use different calculation methods
-			      	//callBleEventHandler.appCalculationNeeded();
-			      	callBleEventHandler.appCalculationNeeded_skinEnv(prevSkinType, callBleEventHandler.currentEnvironment, j, callBleEventHandler.currentEnvironment, 'app');
+			      	//mBLE.appCalculationNeeded();
+			      	//mBLE.appCalculationNeeded_skinEnv(prevSkinType, mBLE.currentEnvironment, j, mBLE.currentEnvironment, 'app');
 
-			      	callBleEventHandler.initTTBTrackArr.push(callBleEventHandler.getLatestInitTTB());	// will be used to recalculate TTB
+			      	mBLE.initTTBTrackArr.push(mBLE.getLatestInitTTB());	// will be used to recalculate TTB
 			      	
 			      })
 			      .catch((err) => {
 			      	console.log('Error Writing Skintype: ' + err);
 			      });
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	        
         }
       }
@@ -226,29 +214,31 @@ cClickEventHandler.prototype = {
 			function clickEvent(j) {
         return function() {
 
-          var prevEnvironment = callBleEventHandler.currentEnvironment;
-	        callBleEventHandler.currentEnvironment = j;
+          var prevEnvironment = mBLE.currentEnvironment;
+	        mBLE.currentEnvironment = j;
 
-	        if(callBleEventHandler.targetDeviceObj) {
+	        if(mBLE.targetDeviceObj) {
 	        	// Mar.19.2018 - Recalculate for local TTB display (without device data)
-			      callBleEventHandler.writeTTB()
+			      // June.21.2018 - changed
+	        	var inputVal = mBLE.calcWriteTTBValue(mBLE.currentSkintype, mBLE.currentEnvironment);
+			      mBLE.writeTTB(inputVal, 3, true)
 			      .then(() => {
 
-			      	callBleEventHandler.prevEnvironment = prevEnvironment; // Mar.23.2018 - Need previous settings 
-			      	callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, j);
-			      	callBleEventHandler.saveSkinEnv();
+			      	mBLE.prevEnvironment = prevEnvironment; // Mar.23.2018 - Need previous settings 
+			      	vBLE.display_skinEnv(mBLE.currentSkintype, j);
+			      	mBLE.saveSkinEnv();
 
 			      	// Mar.23.2018 - Skin and Env use different calculation methods
-			      	//callBleEventHandler.appCalculationNeeded();
-			      	callBleEventHandler.appCalculationNeeded_skinEnv(callBleEventHandler.currentSkintype, prevEnvironment, callBleEventHandler.currentSkintype, j, 'app');
+			      	//mBLE.appCalculationNeeded();
+			      	//mBLE.appCalculationNeeded_skinEnv(mBLE.currentSkintype, prevEnvironment, mBLE.currentSkintype, j, 'app');
 
-			      	callBleEventHandler.initTTBTrackArr.push(callBleEventHandler.getLatestInitTTB());	// will be used to recalculate TTB
+			      	mBLE.initTTBTrackArr.push(mBLE.getLatestInitTTB());	// will be used to recalculate TTB
 			      	
 			      })
 			      .catch((err) => {
 			      	console.log('Error Writing Environment: ' + err);
 			      });
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	        
         }
       }
@@ -273,11 +263,11 @@ cClickEventHandler.prototype = {
 	  	function clickEvent(j) {
         return function() {
         	if(j !== 9) {
-        		callBleEventHandler.startUVChange(j);
+        		mBLE.startUVChange(j);
         	} else {
-        		callBleEventHandler.startUVChange(15);	// read from device
+        		mBLE.startUVChange(15);	// read from device
         	}
-        	callViewHandler.display_uvChange(j);
+        	vBLE.display_uvChange(j);
         }
       }
 
@@ -303,66 +293,68 @@ cClickEventHandler.prototype = {
      	{
 	      text: 'Write TTB',
 	      onClick: function () {
-	        if(callBleEventHandler.targetDeviceObj) {
-			      callBleEventHandler.writeTTB();
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	        if(mBLE.targetDeviceObj) {
+			      // June.21.2018 - changed
+	        	var inputVal = mBLE.calcWriteTTBValue(mBLE.currentSkintype, mBLE.currentEnvironment);
+			      mBLE.writeTTB(inputVal, 3, true)
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
 	    {
 	      text: 'Start Infinite Writing',
 	      onClick: function () {
-	        if(callBleEventHandler.targetDeviceObj) {
-			      callBleEventHandler.writingTest();
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	        if(mBLE.targetDeviceObj) {
+			      mBLE.writingTest();
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
 	    {
 	      text: 'Stop Infinite Writing',
 	      onClick: function () {
-	        if(callBleEventHandler.targetDeviceObj) {
-			      callBleEventHandler.infiniteWritingTestStart = false;
-			    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	        if(mBLE.targetDeviceObj) {
+			      mBLE.infiniteWritingTestStart = false;
+			    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
 	    {
 	      text: 'Start Realtime',
 	      onClick: function () {
-	        callBleEventHandler.startReadRealtime();
+	        mBLE.startReadRealtime();
 	      }
 	    },
 	    {
 	      text: 'Stop Realtime',
 	      onClick: function () {
-	        callBleEventHandler.stopReadRealtime();
+	        mBLE.stopReadRealtime();
 	      }
 	    },
 	    {
 	      text: 'Stop Subscription',
 	      onClick: function () {
-	        callBleEventHandler.stopSubscription();
+	        mBLE.stopSubscription();
 	      }
 	    },
 	    {
 	      text: 'Reset TTB',
 	      onClick: function () {
-	      	if(callBleEventHandler.targetDeviceObj) {
-	        	callBleEventHandler.startReset(3);
-	        } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	      	if(mBLE.targetDeviceObj) {
+	        	mBLE.startReset(3);
+	        } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    },
 	    {
 	      text: 'Reset Sunscreen',
 	      onClick: function () {
-	        if(callBleEventHandler.targetDeviceObj) {
-	        	callBleEventHandler.startReset(2)
+	        if(mBLE.targetDeviceObj) {
+	        	mBLE.startReset(2)
 	        	.then(() => {
 	        		console.log('Reset SS Done...');
-	        		callBleEventHandler.ss_fromDevice = 0;	// reset in local then update when device sends data.
+	        		mBLE.ss_fromDevice = 0;	// reset in local then update when device sends data.
 	        	})
 	        	.catch((err) => {
 	        		console.log('Error Reset SS: ' + err);
 	        	});
-	        } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	        } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	      }
 	    }
 	    ];
@@ -371,34 +363,45 @@ cClickEventHandler.prototype = {
 	  });
 
 	  $$('.writeTTBBtn').on('click', function (e) {
-	    if(callBleEventHandler.targetDeviceObj) {
-	      callBleEventHandler.writeTTB()
+	    if(mBLE.targetDeviceObj) {
+	      // June.21.2018 - changed
+      	var inputVal = mBLE.calcWriteTTBValue(mBLE.currentSkintype, mBLE.currentEnvironment);
+	      mBLE.writeTTB(inputVal, 3, true)
 	      .then(() => {
 
 	      })
 	      .catch((err) => {
 	      	console.log('Error Writing TTB: ' + err);
 	      });
-	    } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	    } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	  });
 
 	  // Jan.10.2018 - For exporting battery data
 	  /*
 	  $$('.button#batteryTester_export_email').on('click', function (e) {
 
-	  	console.log('File -> Email: ' + callBleEventHandler.batteryTestingData.length);
+	  	console.log('File -> Email: ' + mBLE.batteryTestingData.length);
 
-	  	callDatalogHandler.exportCSVFile(callBleEventHandler.batteryTestingData_fileName);
+	  	callDatalogHandler.exportCSVFile(mBLE.batteryTestingData_fileName);
 
 	  });
 
 	  $$('#batteryTester_export_file').on('click', function (e) {
 
-	  	console.log('Data -> File: ' + callBleEventHandler.batteryTestingData.length);
-	  	callDatalogHandler.mergeCSVFile(callBleEventHandler.batteryTestingData_fileName, callDatalogHandler.createCSVDataString_batteryTester());
+	  	console.log('Data -> File: ' + mBLE.batteryTestingData.length);
+	  	callDatalogHandler.mergeCSVFile(mBLE.batteryTestingData_fileName, callDatalogHandler.createCSVDataString_batteryTester());
 	  	
 	  });
 	  */
+
+
+	  // June.26.2018 - Adding for Testing new variables
+	  $$('#resetButton_21').on('click', function (e) { mBLE.startReset(21, 3, true); });
+	  $$('#resetButton_22').on('click', function (e) { mBLE.startReset(22, 3, true); });
+	  $$('#resetButton_23').on('click', function (e) { mBLE.startReset(23, 3, true); });
+	  $$('#resetButton_24').on('click', function (e) { mBLE.startReset(24, 3, true); });
+	  $$('#resetButton_25').on('click', function (e) { mBLE.startReset(25, 3, true); });
+	  $$('#resetButton_26').on('click', function (e) { mBLE.startReset(26, 3, true); });
 
 	},
 
@@ -416,23 +419,23 @@ cClickEventHandler.prototype = {
 		}
 
 		$$('#notification-display-raw').on('click', function (e) {
-      callViewHandler.display_datalog_rawData(callBleEventHandler.notificationDataCollected);
+      vBLE.display_datalog_rawData(mBLE.notificationDataCollected);
     });
     $$('#notification-display-real').on('click', function (e) {
-      callViewHandler.display_datalog_realData(callBleEventHandler.notificationDataAnalyzed);
+      vBLE.display_datalog_realData(mBLE.notificationDataAnalyzed);
     });
     $$('#notification-datalog-export-real').on('click', function (e) {
-    	if(callBleEventHandler.notificationDataAnalyzed.length > 0) {
+    	if(mBLE.notificationDataAnalyzed.length > 0) {
 
-    		callDatalogHandler.createCSVFile_export(callBleEventHandler.createCSVDataString_fileName, callDatalogHandler.createCSVDataString_datalog_real(), 'QSun Datalog Export - Real');
+    		callDatalogHandler.createCSVFile_export(mBLE.createCSVDataString_fileName, callDatalogHandler.createCSVDataString_datalog_real(), 'QSun Datalog Export - Real');
     	
     	} else datalogEmpty();
     	
     });
     $$('#notification-datalog-export-raw').on('click', function (e) {
-    	if(callBleEventHandler.notificationDataCollected.length > 0) {
+    	if(mBLE.notificationDataCollected.length > 0) {
 
-    		callDatalogHandler.createCSVFile_export(callBleEventHandler.createCSVDataString_raw_fileName, callDatalogHandler.createCSVDataString_datalog_raw(), 'QSun Datalog Export - Raw');
+    		callDatalogHandler.createCSVFile_export(mBLE.createCSVDataString_raw_fileName, callDatalogHandler.createCSVDataString_datalog_raw(), 'QSun Datalog Export - Raw');
     	
     	} else datalogEmpty();
     	
@@ -442,9 +445,9 @@ cClickEventHandler.prototype = {
 	init_bytes: function () {
 
 		$$('#bytesSendButton').on('click', function (e) {
-      if(callBleEventHandler.targetDeviceObj) {
-      	callBleEventHandler.startSendingBytes();
-      } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+      if(mBLE.targetDeviceObj) {
+      	mBLE.startSendingBytes();
+      } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
     });
 
 		$$('#bytesSaveButton').on('click', function (e) {
@@ -474,19 +477,19 @@ cClickEventHandler.prototype = {
 
 	  // Special buttons (ex. reset device)
 		$$('#send4Button').on('click', function (e) {
-	    if(callBleEventHandler.targetDeviceObj) {
-      	callBleEventHandler.startReset(4);
-      } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	    if(mBLE.targetDeviceObj) {
+      	mBLE.startReset(4);
+      } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	  });
 	  $$('#send5Button').on('click', function (e) {
-	    if(callBleEventHandler.targetDeviceObj) {
-      	callBleEventHandler.startReset(5);
-      } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	    if(mBLE.targetDeviceObj) {
+      	mBLE.startReset(5);
+      } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	  });
 	  $$('#send6Button').on('click', function (e) {
-	    if(callBleEventHandler.targetDeviceObj) {
-      	callBleEventHandler.startReset(6);
-      } else callViewHandler.ble_status_msg('#BLE-Status', 'Device info does not exist.');
+	    if(mBLE.targetDeviceObj) {
+      	mBLE.startReset(6);
+      } else vBLE.ble_status_msg('#BLE-Status', 'Device info does not exist.');
 	  });
 
 	},
@@ -505,7 +508,7 @@ cClickEventHandler.prototype = {
 	        uvValue = t.getRandomInt(0, 12);
 	      }
 
-	      callBleEventHandler.startUVChange(uvValue);
+	      mBLE.startUVChange(uvValue);
 
 	    }
 	  }
@@ -513,7 +516,7 @@ cClickEventHandler.prototype = {
 		for(var i = 0; i < 14; i++) $$(document).on('click', '.row .uvBtn_' + i, uvChanger(i));
 
 		$$('.row .uvBtn_real').on('click', function (e) {
-	    callBleEventHandler.startUVChange(15);
+	    mBLE.startUVChange(15);
 	  });
 
 	},

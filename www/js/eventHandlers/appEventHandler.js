@@ -8,32 +8,36 @@ cAppEventHandler.prototype = {
 		
 		console.log('Start events');
 
-    callBleEventHandler.conState.push(callBleEventHandler.conStateIndex.DISCONNECTED);
-		callBleEventHandler.startBLEProcess();
-		
+    mBLE.setConState(mBLE.conStateIndex.DISCONNECTED);
+		//mBLE.startBLEProcess();			// June.27.2018 - See index.js.
+			
 	},
 
   // For Sunset, Sunrise time, we need weather data
 	call_geolocation: function () {
+		return new Promise((resolve, reject) => {
+			var onSuccess = function(position) {
 
-		var onSuccess = function(position) {
+	      callWeatherHandler.locationCoord = [];  
+	      callWeatherHandler.locationCoord.push(position.coords.latitude);
+	      callWeatherHandler.locationCoord.push(position.coords.longitude);
 
-      callWeatherHandler.locationCoord = [];  
-      callWeatherHandler.locationCoord.push(position.coords.latitude);
-      callWeatherHandler.locationCoord.push(position.coords.longitude);
+	      resolve(true);
+	      //callWeatherHandler.calculateSuntimesFromMidnight();		// June.27.2018 - See index.js
 
-      callWeatherHandler.calculateSuntimesFromMidnight();
+	    };
 
-    };
+	    // onError Callback receives a PositionError object
+	    //
+	    function onError(error) {
+	    	console.log('code: '    + error.code    + '\n' + 'message: ' + error.message + '\n');
+	    	reject('Error in Geolocation');
+	    }
 
-    // onError Callback receives a PositionError object
-    //
-    function onError(error) {
-        console.log('code: '    + error.code    + '\n' +
-              'message: ' + error.message + '\n');
-    }
+	    navigator.geolocation.getCurrentPosition(onSuccess, onError);
 
-    navigator.geolocation.getCurrentPosition(onSuccess, onError);
+
+		});
 
 	}
 

@@ -1,22 +1,22 @@
-function cViewHandler () {
+function vBLEHandler () {
 
 
 }
 
-cViewHandler.prototype = {
+vBLEHandler.prototype = {
 
 
 	ble_status_msg: function (targetElement, msgString) {
 		// Check how many messages
-    var totalMessages = $$(targetElement).children('.mainMessage').length;
+    //var totalMessages = $$(targetElement).children('.mainMessage').length;
     //console.log('\n\nChildren picker ['+ targetElement +']: \n' + JSON.stringify($$(targetElement).children('.mainMessage')));
-    if(totalMessages > 200) $$('#BLE-Status').empty();
+    //if(totalMessages > 200) $$('#BLE-Status').empty();
 
     // Time stamp
     var d = new Date();
     var a = d.getHours() + ' : ' + d.getMinutes() + ' : ' + d.getSeconds() + ' : ' + d.getMilliseconds();
 
-    $$(targetElement).prepend('<hr><div class="mainMessage" style="color: red; font-weight: bold;">' + a + ' [ '+ callBleEventHandler.initialRealTimeReadingInterval + ' ms]</div>'
+    $$(targetElement).prepend('<hr><div class="mainMessage" style="color: red; font-weight: bold;">' + a + ' [ '+ mBLE.initialRealTimeReadingInterval + ' ms]</div>'
       + '<div style="color: blue;">' + msgString + '</div>');
     
 	},
@@ -101,7 +101,7 @@ cViewHandler.prototype = {
 
     
     $$('#ttb_result').html(string1112);
-    $$('#ttb_whatIsWritten').html(' [' + callBleEventHandler.secondsUntilMidnight + ']');
+    $$('#ttb_whatIsWritten').html(' [' + mBLE.secondsUntilMidnight + ']');
     
   },
 
@@ -222,7 +222,7 @@ cViewHandler.prototype = {
       var allDataHTML = '';
 
       var prevTime = ((realDataArr.length > 0) ? realDataArr[0].prevTime : 0);
-      var notificationFiredTime = callBleEventHandler.notificationDataCollectedTime; 
+      var notificationFiredTime = mBLE.notificationDataCollectedTime; 
       var firedTimeData = new Date(notificationFiredTime); // Notification fired time
 
       // Title
@@ -295,7 +295,7 @@ cViewHandler.prototype = {
     var allDataHTML = '';
 
     // Show total length and the latest data
-    var batteryDataArr = callBleEventHandler.batteryTestingData;
+    var batteryDataArr = mBLE.batteryTestingData;
 
     if(batteryDataArr && batteryDataArr.length > 0) {
       allDataHTML += ('Total: ' + batteryDataArr.length + 
@@ -330,8 +330,8 @@ cViewHandler.prototype = {
     let timeStamp, timeString;
 
     // June.11.2018 - Control # of messages to display
-    var totalMessages = $$('#subscription-data').children('#subscription-data-list').length;
-    if(totalMessages > 50) $$('#subscription-data').empty();
+    //var totalMessages = $$('#subscription-data').children('#subscription-data-list').length;
+    //if(totalMessages > 50) $$('#subscription-data').empty();
 
 
     dataObjArray.map(function(el){
@@ -367,16 +367,16 @@ cViewHandler.prototype = {
     }
 
 
-    let fontSize1 = '12px'; let fontSize2 = '12px';
+    let fontSize1 = '11px'; let fontSize2 = '11px';
     HTMLBuilder = '' +
       '<div id="subscription-data-list" class="row no-gutter" style="color: black;">'+
       	'<div class="col-auto" style="font-size: '+ fontSize1 +';">'+ timeString +'</div>'+ // time
         '<div class="col-auto" style="padding-left: 15px; font-size: '+ fontSize2 +';">'+ ((data0) ? data0 : '--') +'</div>'+ // uv
         '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data1) ? data1 : '--') +'</div>'+ // temp
-        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data2) ? data2 : '--') +'</div>'+ // battery
-        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data3) ? data3 : '--') +'</div>'+ // ttb
-        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data4) ? data4 : '--') +'</div>'+ // ss
-        '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data5) ? data5 : '--') +'</div>'+ // first time since battery
+        '<div class="col-auto" style="margin-left: -20px; font-size: '+ fontSize2 +';">'+ ((data2) ? data2 : '--') +'</div>'+ // battery
+        '<div class="col-auto" style="padding-left: 10px; font-size: '+ fontSize2 +';">'+ ((data3) ? data3 : '--') +'</div>'+ // ttb
+        '<div class="col-auto" style="padding-left: 10px; font-size: '+ fontSize2 +';">'+ ((data4) ? data4 : '--') +'</div>'+ // ss
+        '<div class="col-auto" style="padding-left: 10px; font-size: '+ fontSize2 +';">'+ ((data5) ? data5 : '--') +'</div>'+ // first time since battery
         '<div class="col-auto" style="font-size: '+ fontSize2 +';">'+ ((data7) ? data7 : '--') +'</div>'+ // device shaken
       '</div>';
 
@@ -399,14 +399,14 @@ cViewHandler.prototype = {
     var timeString = addZero(timeNow.getHours()) + ':' + addZero(timeNow.getMinutes()) + ':' + addZero(timeNow.getSeconds());
 
   	var HTMLBuilder = '' +
-      '<div id="subscription-data-list" class="row no-gutter" style="color: red; font-size: 12px;">'+
+      '<div id="subscription-data-list" class="row no-gutter" style="color: red; font-size: 11px;">'+
       	'<div class="col-auto">'+ timeString +'</div>'+ // time
         '<div class="col-auto" style="padding-left: 15px;">'+ 'DC' +'</div>'+ // uv
         '<div class="col-auto">'+ '--'+'</div>'+ // temp
-        '<div class="col-auto">'+ '--' +'</div>'+ // battery
-        '<div class="col-auto">'+ '--' +'</div>'+ // ttb
-        '<div class="col-auto">'+ '--' +'</div>'+ // ss
-        '<div class="col-auto">'+ '--' +'</div>'+ // first time since battery
+        '<div class="col-auto" style="margin-left: -20px;">'+ '--' +'</div>'+ // battery
+        '<div class="col-auto" style="padding-left: 10px;">'+ '--' +'</div>'+ // ttb
+        '<div class="col-auto" style="padding-left: 10px;">'+ '--' +'</div>'+ // ss
+        '<div class="col-auto" style="padding-left: 10px;">'+ '--' +'</div>'+ // first time since battery
         '<div class="col-auto">'+ '--' +'</div>'+ // device shaken
       '</div>';
 
@@ -420,13 +420,12 @@ cViewHandler.prototype = {
   display_appTimer: function (ttb, ss) {
     var t = this;
 
-    var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
-    if(lastConnectionState === callBleEventHandler.conStateIndex.CONNECTED) {
+    if(mBLE.getConState() === mBLE.conStateIndex.CONNECTED) {
 
-      if(callBleEventHandler.checkDeviceCalculate()) console.log('*** [App Timer][From Device]: TTB: ' + ttb + ', SS: ' + ss);
+      if(mBLE.checkDeviceCalculate()) console.log('*** [App Timer][From Device]: TTB: ' + ttb + ', SS: ' + ss);
       else console.log('*** [App Timer][From App]: TTB: ' + ttb + ', SS: ' + ss);
 
-      if(callBleEventHandler.deviceShaken > 0) {
+      if(mBLE.deviceShaken > 0) {
         var ttb_arr = t.secondsToMinutes(ttb);
         var ss_arr = t.secondsToMinutes(ss);
         $$('#appTimer-ttb').html(ttb_arr[0] + ' M ' + ttb_arr[1] + ' S (' + ttb + ' S)');
@@ -439,6 +438,11 @@ cViewHandler.prototype = {
       $$('#appTimer-ttb, #appTimer-ss').html('NA');
     }
 
+  },
+
+  // June.27.2018 - Display number of writes are done
+  display_writeCounter: function () {
+  	$$('#writeNumTrack').html(mBLE.writeCounter);
   }
 
 

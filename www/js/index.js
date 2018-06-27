@@ -1,23 +1,23 @@
 // Rewritten in Jan.04.2018
 
 // declare event handlers
-var callClickHandler, callBleEventHandler, callAppEventHandler, callWeatherHandler;
-var callViewHandler;
+var callClickHandler, mBLE, mBLEinBG, callAppEventHandler, callWeatherHandler;
+var vBLE;
 
 callClickHandler = new cClickEventHandler();
 callAppEventHandler = new cAppEventHandler();
-callBleEventHandler = new cBleEventHandler();
-callBleBGEventHandler = new cBleEventHandlerBG();
+//mBLE = new cBleEventHandler();
+mBLE = new mBLEHandler();			// June.21.2018 - Just changing to simpler name from 'callBleEventHandler'
+mBLEinBG = new mBLEinBGHandler();
 callWeatherHandler = new cWeatherDataHandler();
 callDatalogHandler = new cDatalogHandler();
+vBLE = new vBLEHandler();
 
-callViewHandler = new cViewHandler();
 
 // Global var
 //var subscriptionTestInterval = 0;   // Feb.20.2018 - Added
 var subscriptionDisplayListIndex = 0; // Feb.20.2018 - Added
 
-var appBGFG = 8;    // onBG - 7, onFG - 8
 var BackgroundFetch;  // Mar.08.2018 - Testing for background fetch event
 
 var bgTestingInterval = 0;	// May.03.2018 - Testing for BG
@@ -29,14 +29,35 @@ function onDeviceReady() {
 
   console.log('\n********************\nDevice Ready' + '\n********************\n');
 
-  callBleEventHandler.loadSkinEnv();
-  callViewHandler.display_skinEnv(callBleEventHandler.currentSkintype, callBleEventHandler.currentEnvironment);
+  mBLE.loadSkinEnv();
+  vBLE.display_skinEnv(mBLE.currentSkintype, mBLE.currentEnvironment);
   
   // init events
   callClickHandler.init();
 
   callAppEventHandler.init();
-  callAppEventHandler.call_geolocation(); // For sunrise, sunset time
+
+  // For sunrise, sunset time
+  // June.27.2018 - Now be sure to load all then start BLE process
+  callAppEventHandler.call_geolocation()
+  .then(() => {
+  	return callWeatherHandler.calculateSuntimesFromMidnight();
+  })
+  .then(() => {
+  	mBLE.startBLEProcess();
+  })
+  .catch((err) => {
+  	console.log('[Error] ' + err);
+  	myApp.modal({
+      title: '',
+      text: 'Failed to get Geolocation OR Weather Data. Reopen the app.',
+      buttons: [
+      	{
+      		test: 'Ok'
+      	}
+      ]
+    });
+  });
   
   BackgroundFetch = window.BackgroundFetch;
 
@@ -44,14 +65,15 @@ function onDeviceReady() {
   // Whether its connected or not, disconnect then connect
   document.addEventListener("active", () => {
 
-    appBGFG = 8;
-    console.log('Foreground (Active): ' + appBGFG + ', wait_then_connect_interval: ' + callBleEventHandler.wait_then_connect_interval);
+    mApp.setAppStatus('FG');
 
-    callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+    console.log('Foreground (Active): ' + mApp.getAppStatus() + ', wait_then_connect_interval: ' + mBLE.wait_then_connect_interval);
+
+    mBLE.disconnectDevice(mBLE.targetDeviceObj);
 
     // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
     setTimeout(function () {
-      callBleEventHandler.startBLEProcess();
+      mBLE.startBLEProcess();
     }, 5000);
 
   }, false);
@@ -60,20 +82,19 @@ function onDeviceReady() {
   document.addEventListener("resume", () => {
     setTimeout(function () {
 
-      appBGFG = 8;
-      console.log('Foreground (Resume): ' + appBGFG + ', wait_then_connect_interval: ' + callBleEventHandler.wait_then_connect_interval);
-      clearInterval(bgTestingInterval);
+      mApp.setAppStatus('FG');
 
-      var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
+      console.log('Foreground (Resume): ' + mApp.getAppStatus() + ', wait_then_connect_interval: ' + mBLE.wait_then_connect_interval);
+      clearInterval(bgTestingInterval);
 
       // May.03.2018 - For Android, always gets connected
       // For iOS, disconnect then reconnect
       if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
     		
-    		if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
-    			callBleBGEventHandler.notifyDevice_AppOnFG_android();
-	    		callBleEventHandler.displaySubscription();		// June.07.2018 - Resume displaying Subscription
-	    		callBleEventHandler.runAppTimer();						// June.11.2018 - Continue running
+    		if(mBLE.getConState() !== mBLE.conStateIndex.DISCONNECTED) {
+    			mBLEinBG.notifyDevice_AppOnFG_android();
+	    		mBLE.displaySubscription();		// June.07.2018 - Resume displaying Subscription
+	    		mBLE.runAppTimer();						// June.11.2018 - Continue running
     		} else {
 
     			// What if it's disconnected somehow???
@@ -82,11 +103,11 @@ function onDeviceReady() {
     		
     		
     	} else {
-    		callBleEventHandler.disconnectDevice(callBleEventHandler.targetDeviceObj);
+    		mBLE.disconnectDevice(mBLE.targetDeviceObj);
 
 	      // Mar.19.2018 - When App BG then right after back to FG. Then 'startBLEProcess' is called twice
 	      setTimeout(function () {
-	        callBleEventHandler.startBLEProcess();
+	        mBLE.startBLEProcess();
 	      }, 5000);
     	}
 
@@ -96,18 +117,18 @@ function onDeviceReady() {
 
 	document.addEventListener("pause", () => {
    
-    appBGFG = 7;
-    clearInterval(callBleEventHandler.readRealtimeIntervalID);  // clear realtime in foreground
-    clearInterval(callBleEventHandler.subscriptionTestInterval);
-    callBleEventHandler.bgErrorStack = 0;       // Mar.16.2018 - keeps connect / disconnect issue tracker.
-    clearInterval(callBleEventHandler.appTimerInterval); // Mar.16.2018 - Stop App Timer
+    mApp.setAppStatus('BG');
 
-		console.log('Background: ' + appBGFG);
+    clearInterval(mBLE.readRealtimeIntervalID);  // clear realtime in foreground
+    clearInterval(mBLE.subscriptionTestInterval);
+    mBLE.bgErrorStack = 0;       // Mar.16.2018 - keeps connect / disconnect issue tracker.
+    clearInterval(mBLE.appTimerInterval); // Mar.16.2018 - Stop App Timer
+
+		console.log('Background: ' + mApp.getAppStatus());
     
     // When Device receives 7, it disconnects. 
-    var lastConnectionState = callBleEventHandler.conState[callBleEventHandler.conState.length - 1]; 
 
-    if(lastConnectionState !== callBleEventHandler.conStateIndex.DISCONNECTED) {
+    if(mBLE.getConState() !== mBLE.conStateIndex.DISCONNECTED) {
       
       // Apr.05.2018 - For android, we give options like, 'disconnect in BG', 'Always connected even in BG'
       
@@ -122,7 +143,7 @@ function onDeviceReady() {
           forceReload: false         // <-- Android only
         });
     		*/
-    		callBleBGEventHandler.notifyDevice_AppOnBG_android();
+    		mBLEinBG.notifyDevice_AppOnBG_android();
 
     		let timeStart = new Date().getTime();
     		bgTestingInterval = setInterval(() => {
@@ -131,7 +152,7 @@ function onDeviceReady() {
     		}, 2000);
 
       } else {
-      	callBleBGEventHandler.notifyDevice_AppOnBG_iOS();
+      	mBLEinBG.notifyDevice_AppOnBG_iOS();
       }
     }
     
@@ -142,7 +163,7 @@ function onDeviceReady() {
 
     // For iOS, 30 seconds are allowed. Android?
     // finish() is called in scan timeout
-    callBleEventHandler.startBGFetchEvent();
+    mBLE.startBGFetchEvent();
 
   };
 

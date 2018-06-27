@@ -4,8 +4,8 @@
   "displayName": "Comfable Device Tester2",
   "cordova": {
     "platforms": [
-      "android",
-      "ios"
+      "ios",
+      "android"
     ],
     "plugins": {
       "cordova-plugin-battery-status": {},

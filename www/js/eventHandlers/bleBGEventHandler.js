@@ -10,28 +10,28 @@
 
 // Mar.04 - came up with new background algorithm that saves a lot of bettery of the device.
 
-function cBleEventHandlerBG () {
+function mBLEinBGHandler () {
 
 	this.keepingAliveIntervalID = 0;
 	this.backgroundEnteredTime = 0;		// epoch
 }
 
-cBleEventHandlerBG.prototype = {
+mBLEinBGHandler.prototype = {
 
 	reconnect: function (deviceObj) {
 		var t = this;
 		evothings.ble.connectToDevice(deviceObj, function(){
-			callBleEventHandler.conState.push(callBleEventHandler.conStateIndex.CONNECTED);
+			mBLE.setConState(mBLE.conStateIndex.CONNECTED);
 			t.startKeepingAliveInBG(deviceObj);
 		}, function(){
-			callBleEventHandler.conState.push(callBleEventHandler.conStateIndex.DISCONNECTED);
+			mBLE.setConState(mBLE.conStateIndex.DISCONNECTED);
 			console.log('Disconnected in BG. Reconnect...');
-			callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected in BG. Reconnect...');
+			vBLE.ble_status_msg('#BLE-Status', 'Disconnected in BG. Reconnect...');
 			t.reconnect(deviceObj);
 		}, function(err){
-			callBleEventHandler.conState.push(callBleEventHandler.conStateIndex.DISCONNECTED);
+			mBLE.setConState(mBLE.conStateIndex.DISCONNECTED);
 			console.log('Error in Reconnection BG: ' + err);
-			callViewHandler.ble_status_msg('#BLE-Status', 'Error in Reconnection BG: ' + err);
+			vBLE.ble_status_msg('#BLE-Status', 'Error in Reconnection BG: ' + err);
 			t.reconnect(deviceObj);
 		}, { discoverServices: true });
 	},
@@ -44,9 +44,9 @@ cBleEventHandlerBG.prototype = {
 		var messageCounter = 0;
 
 		var char3Val, char4Val;
-		var serviceAddress1 = callBleEventHandler.startReadRealtime_service1;
-		var characteristicsAddress3 = callBleEventHandler.startReadRealtime_char3;    
-    var characteristicsAddress4 = callBleEventHandler.startReadRealtime_char4; 
+		var serviceAddress1 = mBLE.startReadRealtime_service1;
+		var characteristicsAddress3 = mBLE.startReadRealtime_char3;    
+    var characteristicsAddress4 = mBLE.startReadRealtime_char4; 
 
     var service1 = evothings.ble.getService(deviceObj, serviceAddress1);
     var characteristics3 = evothings.ble.getCharacteristic(service1, characteristicsAddress3);
@@ -54,10 +54,10 @@ cBleEventHandlerBG.prototype = {
 
 		t.keepingAliveIntervalID = setInterval(function () {
 
-			callBleEventHandler.readValue(characteristics3, 'Uint32')
+			mBLE.readValue(characteristics3, 'Uint32')
 			.then(function (val) {
 				char3Val = val;
-				return callBleEventHandler.readValue(characteristics4, 'Uint32');
+				return mBLE.readValue(characteristics4, 'Uint32');
 			})
 			.then(function (val) {
 				char4Val = val;
@@ -74,9 +74,9 @@ cBleEventHandlerBG.prototype = {
 			})
 			.catch(function (err) {
 				console.log('Error in Keeping Alive: ' + err);
-				callViewHandler.ble_status_msg('#BLE-Status', 'Error in Keeping Alive: ' + err);
+				vBLE.ble_status_msg('#BLE-Status', 'Error in Keeping Alive: ' + err);
 				if(err === 'device not found') {
-					callBleBGEventHandler.reconnect(deviceObj);
+					t.reconnect(deviceObj);
 				}
 			});
 
@@ -90,16 +90,16 @@ cBleEventHandlerBG.prototype = {
 	// iOS
 	notifyDevice_AppOnBG_iOS: function () {
 
-		callBleEventHandler.startReset(7, 3, true)
-		.then(() => { console.log('App on BG [iOS] write is done: ' + 7); })
+		mBLE.startReset(mApp.getAppStatusIndex().BG_iOS, 3, true)
+		.then(() => { console.log('App on BG [iOS] write is done: ' + mApp.getAppStatusIndex().BG_iOS); })
 		.catch((err) => { console.log(err); });
 
 	},
 
 	notifyDevice_AppOnFG_iOS: function () {
 
-		callBleEventHandler.startReset(8, 3, true)
-		.then(() => { console.log('App on FG [iOS] write is done: ' + 8); })
+		mBLE.startReset(mApp.getAppStatusIndex().FG_iOS, 3, true)
+		.then(() => { console.log('App on FG [iOS] write is done: ' + mApp.getAppStatusIndex().FG_iOS); })
 		.catch((err) => { console.log(err); });
 
 	},
@@ -107,16 +107,16 @@ cBleEventHandlerBG.prototype = {
 	// Android
 	notifyDevice_AppOnBG_android: function () {
 
-		callBleEventHandler.startReset(9, 3, true)
-		.then(() => { console.log('App on BG [Android] write is done: ' + 9); })
+		mBLE.startReset(mApp.getAppStatusIndex().BG_ANDROID, 3, true)
+		.then(() => { console.log('App on BG [Android] write is done: ' + mApp.getAppStatusIndex().BG_ANDROID); })
 		.catch((err) => { console.log(err); });
 
 	},
 
 	notifyDevice_AppOnFG_android: function () {
 
-		callBleEventHandler.startReset(10, 3, true)
-		.then(() => { console.log('App on FG [Android] write is done: ' + 10); })
+		mBLE.startReset(mApp.getAppStatusIndex().FG_ANDROID, 3, true)
+		.then(() => { console.log('App on FG [Android] write is done: ' + mApp.getAppStatusIndex().FG_ANDROID); })
 		.catch((err) => { console.log(err); });
 
 	},

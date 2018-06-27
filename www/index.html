@@ -66,9 +66,14 @@
                   	<div class="col-33 environmentSelection" style="border: 2px solid green; border-radius: 5px; padding-left: 5px;">
                   		Env: <span id="environmentSelection-selected"></span>
                   	</div>
-                	<div class="col-33 uvSelection" style="border: 2px solid blue; border-radius: 5px; padding-left: 5px;">
+                		<div class="col-33 uvSelection" style="border: 2px solid blue; border-radius: 5px; padding-left: 5px;">
                   		UV: <span id="uvSelection-selected"></span>
                   	</div>
+                  </div>
+                  <div class="row" style="font-size: 4vw; margin-top: 0%;">
+                  	<div class="col-33 button button-fill" id="resetButton_21">21</div>
+                  	<div class="col-33 button button-fill" id="resetButton_22">22</div>
+                		<div class="col-33 button button-fill" id="resetButton_23">23</div>
                   </div>
                
                   <div style="margin-top: 0%;">TTB Total: <span id="ttb_result" style="color: blue;"></span><span id="ttb_whatIsWritten" style="color: green;"></span> <-- [<span id="ttb_sent" style="color: blue;"></span>]</div>
@@ -96,18 +101,23 @@
                   </div>
 
                   <div style="margin-top: 1%;">Subscription: <span id="subscription-time" style="color: green; font-size: 4vw;"></span></div>
-                  <div class="row no-gutter" style="color: blue; font-size: 12px; margin-top: 0; margin-bottom: 0; border: solid 2px green; border-bottom: none;">
+                  <div class="row no-gutter" style="color: blue; font-size: 11px; margin-top: 0; margin-bottom: 0; border: solid 2px green; border-bottom: none;">
                   	<div class="col-auto">TIME</div>
                     <div class="col-auto" style="padding-left: 15px;">UV</div>
-                    <div class="col-auto">TEMP</div>
-                    <div class="col-auto">BATT</div>
-                    <div class="col-auto">TTB</div>
-                    <div class="col-auto">SS</div>
-                    <div class="col-auto">FT?</div>
+                    <div class="col-auto">T</div>
+                    <div class="col-auto" style="margin-left: -20px;">B</div>
+                    <div class="col-auto" style="padding-left: 10px;">TTB</div>
+                    <div class="col-auto" style="padding-left: 10px;">SS</div>
+                    <div class="col-auto" style="padding-left: 10px;">FT</div>
                     <div class="col-auto">SHK</div>
                   </div>
                   <div id="subscription-data" style="overflow-y: auto; height: 120px; border: solid 2px green; font-size: 3vw;">
               
+                  </div>
+
+                  <!-- June.27.2018 - Track # of writes done for beginning -->
+                  <div style="font-size: 12px; margin-top: 0; margin-bottom: 0;">
+                  	Writes are done:<span id="writeNumTrack" style="color: white; background-color: blue; margin: 0; padding-left: 10px; padding-right: 10px;"></span>times
                   </div>
 
                 </div>
@@ -157,6 +167,11 @@
                     <div class="col-33 button button-fill" id="send4Button" style="font-size: 4vw; margin-top: 5%;">4</div>
                     <div class="col-33 button button-fill" id="send5Button" style="font-size: 4vw; margin-top: 5%;">5</div>
                     <div class="col-33 button button-fill" id="send6Button" style="font-size: 4vw; margin-top: 5%;">6</div>
+                  </div>
+                  <div class="row" style="margin-top: 1%; font-size: 4vw;">
+                    <div class="col-33 button button-fill" id="resetButton_24">24</div>
+                    <div class="col-33 button button-fill" id="resetButton_25">25</div>
+                    <div class="col-33 button button-fill" id="resetButton_26">26</div>
                   </div>
 
                 </div>

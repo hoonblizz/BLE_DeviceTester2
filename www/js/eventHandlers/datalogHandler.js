@@ -33,7 +33,7 @@ cDatalogHandler.prototype = {
 
 		var t = this;
 
-		if(callBleEventHandler.notificationDataCollected.length < 1) {
+		if(mBLE.notificationDataCollected.length < 1) {
 	    // notification is empty or not fired
 	    myApp.modal({
 	      title: 'Notification Data Required!',
@@ -51,8 +51,8 @@ cDatalogHandler.prototype = {
 
 	  	t.datalog_analyzeData()
 	  	.then(() => {
-	  		callViewHandler.display_datalog_init();
-	  		return callViewHandler.display_datalog_realData(callBleEventHandler.notificationDataAnalyzed);
+	  		vBLE.display_datalog_init();
+	  		return vBLE.display_datalog_realData(mBLE.notificationDataAnalyzed);
 	  	})
 	  	.then(() => {
 
@@ -93,24 +93,24 @@ cDatalogHandler.prototype = {
 
 	    var pushTo = 0;   // 0 - firstBlock, 1 - lastBlock
 
-	    for(i = 0; i < callBleEventHandler.notificationDataCollected.length; i++) {
+	    for(i = 0; i < mBLE.notificationDataCollected.length; i++) {
 
-	      if(callBleEventHandler.notificationDataCollected[i].time == bookmarkData.time && 
-	        callBleEventHandler.notificationDataCollected[i].temp == bookmarkData.temp &&
-	        callBleEventHandler.notificationDataCollected[i].uv == bookmarkData.uv) {
+	      if(mBLE.notificationDataCollected[i].time == bookmarkData.time && 
+	        mBLE.notificationDataCollected[i].temp == bookmarkData.temp &&
+	        mBLE.notificationDataCollected[i].uv == bookmarkData.uv) {
 
 	        pushTo = 1;   // change to push to last block
 
 	      } else {
 
 	        if(pushTo == 0) {
-	          if(!checkDuplicates(firstBlockArray, callBleEventHandler.notificationDataCollected[i])) { 
-	            firstBlockArray.push(callBleEventHandler.notificationDataCollected[i]);
+	          if(!checkDuplicates(firstBlockArray, mBLE.notificationDataCollected[i])) { 
+	            firstBlockArray.push(mBLE.notificationDataCollected[i]);
 	          }
 	        }
 	        else {
-	          if(!checkDuplicates(lastBlockArray, callBleEventHandler.notificationDataCollected[i])) { 
-	            lastBlockArray.push(callBleEventHandler.notificationDataCollected[i]);
+	          if(!checkDuplicates(lastBlockArray, mBLE.notificationDataCollected[i])) { 
+	            lastBlockArray.push(mBLE.notificationDataCollected[i]);
 	          }
 	        }
 
@@ -136,12 +136,12 @@ cDatalogHandler.prototype = {
 	    // Jan.09.2018 - With Mike's bookmark, testing to see attaching last + first data blocks
 	    allData = lastBlockArray.concat(firstBlockArray);
 	    // ==================================================
-	    allDataRaw = callBleEventHandler.notificationDataCollected;
+	    allDataRaw = mBLE.notificationDataCollected;
 	    allDataRaw.sort(function(a, b){
 	      return a.id - b.id;
 	    });// Desc order for raw data
 
-	    callBleEventHandler.notificationDataCollected = allDataRaw;
+	    mBLE.notificationDataCollected = allDataRaw;
 
 	    // =====================================================================================
 	    // Divide by reset point 
@@ -204,7 +204,7 @@ cDatalogHandler.prototype = {
 	    // =====================================================================================
 	    // Depending on conditions, pick blocks and concat
 	    // =====================================================================================
-	    var dataWasReset = callBleEventHandler.firstTimeSinceBattery;
+	    var dataWasReset = mBLE.firstTimeSinceBattery;
 	    if(dataWasReset == 1) {
 	      // Check if prevTime exists, 
 	      if(lastBlockArray[0].prevTime == 0) firstBlockArray = [];
@@ -214,13 +214,13 @@ cDatalogHandler.prototype = {
 
 	    var t2 = performance.now();
 
-	    callBleEventHandler.notificationDataAnalyzed = allData;
+	    mBLE.notificationDataAnalyzed = allData;
 
-	    //console.log('\n\nMerged / Sorted Data ['+ parseInt(t2 - t1) +' ms]: \n\n' + JSON.stringify(callBleEventHandler.notificationDataAnalyzed));
-	    //console.log('\n\nRaw Array ['+ parseInt(t2 - t1) +' ms]: \n\n' + JSON.stringify(callBleEventHandler.notificationDataCollected));
+	    //console.log('\n\nMerged / Sorted Data ['+ parseInt(t2 - t1) +' ms]: \n\n' + JSON.stringify(mBLE.notificationDataAnalyzed));
+	    //console.log('\n\nRaw Array ['+ parseInt(t2 - t1) +' ms]: \n\n' + JSON.stringify(mBLE.notificationDataCollected));
 
 	    // switch it to 0
-	  	callBleEventHandler.firstTimeSinceBattery = 0;
+	  	mBLE.firstTimeSinceBattery = 0;
 
 	  	resolve(true);
 
@@ -244,7 +244,7 @@ cDatalogHandler.prototype = {
 
 		var csvContent = '';//"data:text/csv;charset=utf-8,";
 
-		callBleEventHandler.batteryTestingData.map(function(element){
+		mBLE.batteryTestingData.map(function(element){
 			csvContent += (element.currentTime + ',' + element.duration + ',' + element.voltage + '\n');	// \r\n
 		});
 
@@ -262,10 +262,10 @@ cDatalogHandler.prototype = {
 		var t1 = performance.now();
 
 		var csvContent = '';//"data:text/csv;charset=utf-8,";
-		var realDataArr = callBleEventHandler.notificationDataAnalyzed;
+		var realDataArr = mBLE.notificationDataAnalyzed;
 
 		var prevTime = ((realDataArr.length > 0) ? realDataArr[0].prevTime : 0);
-    var notificationFiredTime = callBleEventHandler.notificationDataCollectedTime;
+    var notificationFiredTime = mBLE.notificationDataCollectedTime;
 
 		csvContent += ('Calculated Time' + ',' + 'Time(s)' + ',' + 'UV' + ',' + 'TotalTTB' + ',' + 'ActiveLED' + ',' + 'Sunscreen' + ',' + 'Current Time' + ',' + 'Previous Time' + ',' + 'Data Size' + '\n');
 
@@ -287,10 +287,10 @@ cDatalogHandler.prototype = {
 		var t1 = performance.now();
 
 		var csvContent = '';//"data:text/csv;charset=utf-8,";
-		var rawDataArr = callBleEventHandler.notificationDataCollected;
+		var rawDataArr = mBLE.notificationDataCollected;
 
 		var prevTime = ((rawDataArr.length > 0) ? rawDataArr[0].prevTime : 0);
-    var notificationFiredTime = callBleEventHandler.notificationDataCollectedTime;
+    var notificationFiredTime = mBLE.notificationDataCollectedTime;
 
 		csvContent += ('Time(s)' + ',' + 'UV' + ',' + 'ActiveLED' + ',' + 'TotalTTB' + ',' + 'Sunscreen' + ',' + 'Current Time' + ',' + 'Previous Time' + ',' + 'Data Size' + '\n');
 
@@ -481,7 +481,7 @@ cDatalogHandler.prototype = {
 			// https://github.com/katzer/cordova-plugin-email-composer/issues/97
 			cordova.plugins.email.isAvailable(function (isAvailable) {
 	      cordova.plugins.email.open({
-	        to: callBleEventHandler.batteryTestingData_emailTo,
+	        to: mBLE.batteryTestingData_emailTo,
 	        subject: emailSubject,
 	        body: 'Check the attachment',
 	        attachments: attachmentLocationArray

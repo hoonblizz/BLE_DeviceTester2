@@ -21,21 +21,31 @@
 	
 	June.11.2018 - Removed all ttb_uv1 methods. Don't need it.
 
+	June.27.2018 - Reference
+	https://android.jlelse.eu/lessons-for-first-time-android-bluetooth-le-developers-i-learned-the-hard-way-fee07646624
+
 */
 
-function cBleEventHandler() {
+function mBLEHandler() {
 
 	this.restUUID = adds.restUUID;
 
 	this.serviceUUID = adds.serviceUUID + this.restUUID;
 	this.serviceUUID2 = adds.serviceUUID2 + this.restUUID;	// old one
 
-	this.conState = []; 
+	var conState = []; 
 	this.conStateIndex = {
 		SCANNING: 'SCANNING',
 		CONNECTING: 'CONNECTING',
 		CONNECTED: 'CONNECTED',
 		DISCONNECTED: 'DISCONNECTED'
+	}
+	this.setConState = function (connectionStateString) {		// June.21.2018 - Picking up the latest connection state
+		if(conState.length > 50) conState = [];		// clear if too many
+		conState.push(connectionStateString);
+	}
+	this.getConState = function () {		// June.21.2018 - Picking up the latest connection state
+		return conState[conState.length - 1];
 	}
 	
 	this.subscriptionOpened = 0;	// to open subscription just once. 
@@ -214,9 +224,12 @@ function cBleEventHandler() {
 	// June.11.2018 - Track if TTB is over. It'll be reset when reset TTB or SS.
 	this.ttbIsOver = false;
 
+	// June.27.2018 - Write number counter. 
+	this.writeCounter = 0;
+
 }
 
-cBleEventHandler.prototype = {
+mBLEHandler.prototype = {
 
 	/* ===========================================================================
 	Scanning Or Connect?
@@ -236,10 +249,13 @@ cBleEventHandler.prototype = {
 		this.loadPassword();		// Feb.21.2018 - load password implemented
 
 		evothings.ble.stopScan();
-		t.conState.push(t.conStateIndex.DISCONNECTED);
+		t.setConState(t.conStateIndex.DISCONNECTED);
 
 		// Apr.05.2018 - For androids, we can simply reconnect if it was connected before. 
 		if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
+
+			console.log('START BLE PROCESS: ' + ((t.targetDeviceObj) ? JSON.stringify(t.targetDeviceObj) : 'No Device Data'))
+
 			if(t.targetDeviceObj) {
 
 				t.startConnecting(t.targetDeviceObj);
@@ -251,68 +267,40 @@ cBleEventHandler.prototype = {
 					var deviceObj = JSON.parse(deviceInfoString);
 
 					// Mar.22.2018 - Display pre-stored device object
-					callViewHandler.display_saved_device_address(deviceObj.address);
-					if(defaultName && defaultName !== '') callViewHandler.display_deviceName(defaultName);
-					else callViewHandler.display_deviceName(deviceObj.name);
+					vBLE.display_saved_device_address(deviceObj.address);
+					if(defaultName && defaultName !== '') vBLE.display_deviceName(defaultName);
+					else vBLE.display_deviceName(deviceObj.name);
 
 
-					callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to saved device: ' + deviceObj.name + ' [' + deviceObj.address + ']');
+					vBLE.ble_status_msg('#BLE-Status', 'Connecting to saved device: ' + deviceObj.name + ' [' + deviceObj.address + ']');
 					console.log('Connecting to saved device: ' + deviceObj.name + ' [' + deviceObj.address + ']');
 
-					// Test for bonded devices (only for Android)
-					/*
-					evothings.ble.getBondedDevices((devices) => {
-		        console.log('Bonded devices: ' + JSON.stringify(devices));
-		      }, (err) => {
-		        console.log('getBondedDevices error: ' + err);
-		      }, { serviceUUIDs: [t.serviceUUID] });
-
-		      evothings.ble.getBondState({ address: deviceObj.address }, (res) => {
-		        console.log('Bond state of ['+ deviceObj.name +']: ' + res);
-		        if(res === 'unbonded') {
-		        	// Try bonding
-		        	evothings.ble.bond( { address: deviceObj.address }, (res) => { 
-		        		console.log('Try bonding result : ' + res); 
-		        	}, (err) => { console.log('bond error: ' + err); });
-		        }
-		      }, (err) => {
-		        console.log('getBondState error: ' + err);
-		      }, { serviceUUIDs: [t.serviceUUID] });
-					*/
 					t.startConnecting(deviceObj);
 
 				} else {
 
 					// Mar.22.2018 - Display nothing
-					callViewHandler.display_saved_device_address('');
-					callViewHandler.display_deviceName('');
+					vBLE.display_saved_device_address('');
+					vBLE.display_deviceName('');
 
-					t.conState.push(t.conStateIndex.SCANNING);
+					t.setConState(t.conStateIndex.SCANNING);
 					t.startScanning();
 				}
 				
-				/*
-				// Mar.22.2018 - Display nothing
-				callViewHandler.display_saved_device_address('');
-				callViewHandler.display_deviceName('');
-
-				t.conState.push(t.conStateIndex.SCANNING);
-				t.startScanning();
-				*/
 			}
 
 		} else {
 
-			t.conState.push(t.conStateIndex.SCANNING);
+			t.setConState(t.conStateIndex.SCANNING);
 
 			if(deviceInfoString && deviceInfoString !== '') {
 				var deviceObj = JSON.parse(deviceInfoString);
-				callViewHandler.display_saved_device_address(deviceObj.address);
+				vBLE.display_saved_device_address(deviceObj.address);
 			}
 
 			if(defaultName && defaultName !== '') {
 
-				callViewHandler.display_deviceName(defaultName);
+				vBLE.display_deviceName(defaultName);
 
 				t.startScanThenConnect(defaultName);
 
@@ -338,12 +326,12 @@ cBleEventHandler.prototype = {
 		var t = this;
 		var bleStatus = 'SCANNING';
 
-		callViewHandler.ble_status_msg('#BLE-Status', 'Scan and connect Started');
+		vBLE.ble_status_msg('#BLE-Status', 'Scan and connect Started');
 		//console.log('Scan and connect Started... Target: ' + deviceName);
 
 		var scanFoundFcn = function (device) {
 			evothings.ble.stopScan();
-			t.conState.push(t.conStateIndex.DISCONNECTED);
+			t.setConState(t.conStateIndex.DISCONNECTED);
 
 			bleStatus = 'CONNECTING';
 
@@ -377,7 +365,7 @@ cBleEventHandler.prototype = {
 	startScanning: function () {
 		
 		// Scan -> Stop -> display scanned devices
-		callViewHandler.ble_status_msg('#BLE-Status', 'Scanning Started');
+		vBLE.ble_status_msg('#BLE-Status', 'Scanning Started');
 		console.log('Scanning Started...');
 
 		this.scanDevices();	
@@ -391,7 +379,7 @@ cBleEventHandler.prototype = {
 		var t = this;
 		
 		evothings.ble.stopScan();
-		t.conState.push(t.conStateIndex.DISCONNECTED);
+		t.setConState(t.conStateIndex.DISCONNECTED);
 
 		t.scannedDeviceArr = [];		// empty list
 
@@ -434,12 +422,17 @@ cBleEventHandler.prototype = {
 		t.scanTimeoutInterval = setTimeout(function() {
 
 			evothings.ble.stopScan();
-			t.conState.push(t.conStateIndex.DISCONNECTED);
+			t.setConState(t.conStateIndex.DISCONNECTED);
 
 			if(t.scannedDeviceArr.length > 0) {
 
 				function clickEvent(deviceInfo) {
 	        return function() {
+	        	// June.27.2018 - Resolves, 
+	        	//		For Android, First time connecting, user selected one device but if failos to connect, it'll reconnect
+	        	t.targetDeviceObj = deviceInfo;		
+	        	console.log('Saving Device info: ' + JSON.stringify(t.targetDeviceObj));
+
 	          t.startConnecting(deviceInfo);
 	        }
 	      }
@@ -467,7 +460,7 @@ cBleEventHandler.prototype = {
         }); 
 
 			} else {
-				callViewHandler.ble_status_msg('#BLE-Status', 'No device Found');
+				vBLE.ble_status_msg('#BLE-Status', 'No device Found');
 			}
 
 		}, timeoutDuration);
@@ -490,7 +483,7 @@ cBleEventHandler.prototype = {
 		// Set Timeout then when it's over, stop scanning then run finish
 		setTimeout(() => {
 			evothings.ble.stopScan();
-			t.conState.push(t.conStateIndex.DISCONNECTED);
+			t.setConState(t.conStateIndex.DISCONNECTED);
 			BackgroundFetch.finish(); // <---- important!
 			console.log('BG Fetch Scan is timedout and finish called...');
 		}, timeLimit);
@@ -504,7 +497,7 @@ cBleEventHandler.prototype = {
 	    	var defaultAddress = JSON.parse(localStorage["deviceMacAddress"]);
 	    	if(device.address === defaultAddress.address) {
 	    		evothings.ble.stopScan();
-	    		t.conState.push(t.conStateIndex.DISCONNECTED);
+	    		t.setConState(t.conStateIndex.DISCONNECTED);
 	    		t.startConnecting(device);
 	    	}
 	    	
@@ -523,8 +516,8 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
-		if(t.conState[t.conState.length - 1] === t.conStateIndex.DISCONNECTED) {
-			t.conState.push(t.conStateIndex.CONNECTING); // connecting
+		if(t.getConState() === t.conStateIndex.DISCONNECTED) {
+			t.setConState(t.conStateIndex.CONNECTING); // connecting
 
 			console.log('\n============================================================' +
 									'\n Connecting to ' + t.getDeviceName(deviceObj) + '...' +
@@ -533,14 +526,16 @@ cBleEventHandler.prototype = {
 									//'\nActivity Track: ' + t.conState + 
 									'\n============================================================\n');
 
-			callViewHandler.ble_status_msg('#BLE-Status', 'Connecting to ' + t.getDeviceName(deviceObj) + '<br>' + deviceObj.address);
+			vBLE.ble_status_msg('#BLE-Status', 'Connecting to ' + t.getDeviceName(deviceObj) + '<br>' + deviceObj.address);
 
 			// Save into Local
 	    if(deviceObj.hasOwnProperty('address'))
 	      //localStorage["deviceMacAddress"] = JSON.stringify(deviceObj);		// save entire info of device
 
 			// Add functions to call after connect
-			this.connectDevice(deviceObj);
+			// June.27.2018 - Give a small time. Some say it resolved issue with 133 <-- Not working
+			//		https://github.com/googlesamples/android-BluetoothLeGatt/issues/44
+			setTimeout(() => { t.connectDevice(deviceObj); }, 500);
 
 		}
 		
@@ -551,23 +546,31 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
+		myApp.showPreloader('Connecting...');
+
 		// Jan.29.2018 - For testing purpose, set discoverServices and serviceUUIDs
 		evothings.ble.connectToDevice(deviceObj, function(){
 
 			clearInterval(t.connectionWaitingInterval);
 			clearInterval(t.connectingStateDurationInterval);
+			myApp.hidePreloader();
+			setTimeout(() => { myApp.closeModal(); }, 1000);
 			
 			t.device_state_connected(deviceObj);
 
 		}, function(){
 
 			clearInterval(t.connectionWaitingInterval);
+			myApp.hidePreloader();
+			setTimeout(() => { myApp.closeModal(); }, 1000);
 			
 			t.device_state_disconnected(deviceObj);
 
 		}, function(err){
 
 			clearInterval(t.connectionWaitingInterval);
+			myApp.hidePreloader();
+			setTimeout(() => { myApp.closeModal(); }, 1000);
 		
 			t.device_state_error(err, deviceObj);
 
@@ -584,7 +587,7 @@ cBleEventHandler.prototype = {
 		// Global use
 		t.targetDeviceObj = deviceObj;
 
-		t.conState.push(t.conStateIndex.CONNECTED);
+		t.setConState(t.conStateIndex.CONNECTED);
 
 		// Save into Local if device info has full list of services and chars
 		// Save it only once!
@@ -596,7 +599,7 @@ cBleEventHandler.prototype = {
 
 			// May.03.2018 - For iOS, use local name
 			localStorage["deviceName"] = t.getDeviceName(deviceObj);
-			callViewHandler.display_deviceName(t.getDeviceName(deviceObj)); 
+			vBLE.display_deviceName(t.getDeviceName(deviceObj)); 
 
 			
 
@@ -622,11 +625,11 @@ cBleEventHandler.prototype = {
 		});
 		
 
-		callViewHandler.ble_status_msg('#BLE-Status', t.getDeviceName(deviceObj) + ' Connected! ' + '<br>' + deviceObj.address);
-		callViewHandler.display_connected_device_address(deviceObj.address);
+		vBLE.ble_status_msg('#BLE-Status', t.getDeviceName(deviceObj) + ' Connected! ' + '<br>' + deviceObj.address);
+		vBLE.display_connected_device_address(deviceObj.address);
 		
 		// June.01.2018 - A bit of delay for Android
-		setTimeout(() => { t.initAfterConnected(); }, 1000);
+		//setTimeout(() => { t.initAfterConnected(); }, 1000);
 
 	},
 
@@ -640,7 +643,7 @@ cBleEventHandler.prototype = {
 		var t = this;
 
 		console.log('**** Connection Error: [ ' + err + ' ]');
-		callViewHandler.ble_status_msg('#BLE-Status', 'Error ' + err);
+		vBLE.ble_status_msg('#BLE-Status', 'Error ' + err);
 		//t.androidErrorCounter.push(err);
 
 		// Error: 8, 19, 22, 133, 257
@@ -654,15 +657,7 @@ cBleEventHandler.prototype = {
 		// make complete disconnection. It'll start from scanning every 15 min.
 		// But for error msg 257, reset needed.
 		if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-			/*
-			if(t.androidErrorCounter.length > 3) {
-				evothings.ble.reset();
-				setTimeout(() => {
-					if(appBGFG == 7) t.startBGFetchEvent();
-					else t.startConnecting(deviceObj);
-				}, 5000)
-			} 
-			*/
+		
 			if(err == 8) {
 				t.wait_then_connect(deviceObj);
 			} else if(err == 19) {
@@ -670,7 +665,9 @@ cBleEventHandler.prototype = {
 				t.wait_then_connect(deviceObj);
 			} else if(err == 133) {
 
-				if(appBGFG == 7) {
+				evothings.ble.reset();				// For testing
+
+				if(mApp.checkAppStatus('BG')) {
 					//t.startBGFetchEvent(deviceObj);
 					t.wait_then_connect(deviceObj);
 				}
@@ -678,7 +675,7 @@ cBleEventHandler.prototype = {
 
 			} else if(err == 257) {
 				
-				if(appBGFG == 7) {
+				if(mApp.checkAppStatus('BG')) {
 					BackgroundFetch.stop();
 
 	        var bgFetchCallback = function() {
@@ -709,7 +706,7 @@ cBleEventHandler.prototype = {
 				}
 
 			} else {
-				if(appBGFG == 8) t.startConnecting(deviceObj);	
+				if(mApp.checkAppStatus('FG')) t.startConnecting(deviceObj);	
 				else {
 					t.disconnectDevice(deviceObj);
 				}
@@ -749,10 +746,10 @@ cBleEventHandler.prototype = {
 			text: 'Disconnected to Device'
 		});
 
-		callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected...');
-		callViewHandler.display_connected_device_address('');	// MAr.22.2018 - Empty
+		vBLE.ble_status_msg('#BLE-Status', 'Disconnected...');
+		vBLE.display_connected_device_address('');	// MAr.22.2018 - Empty
 
-		t.conState.push(t.conStateIndex.DISCONNECTED);
+		t.setConState(t.conStateIndex.DISCONNECTED);
 
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
@@ -780,11 +777,11 @@ cBleEventHandler.prototype = {
 								'\nUser State Length: ' + t.userState.length +
 								'\nLatest User State : [ ' + t.userState[t.userState.length - 1] + ' ]' + 
 								'\nEver READ DONE? [ ' + everWorked + ' ]' +
-								'\nApp on FG / BG: ' + appBGFG +
+								'\nApp on FG / BG: ' + mApp.getAppStatus() +
 								'\n============================================================\n');
 
 		// Mar.16.2018 - Dealing more cases
-		if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.ENTER_PASSWORD_DONE) && appBGFG == 8) {
+		if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.ENTER_PASSWORD_DONE) && mApp.checkAppStatus('FG')) {
 			
 			t.disconnectDevice(deviceObj);
 
@@ -797,7 +794,7 @@ cBleEventHandler.prototype = {
 	      }]
 	    }); 
 
-		} else if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.SIGNAL_FG_DONE) && appBGFG == 7) {
+		} else if(t.userState.length > 0 && (t.userState[t.userState.length - 1] === t.userStateIndex.SIGNAL_FG_DONE) && mApp.checkAppStatus('BG')) {
 
 			// Mar.16.2018 - For Background Error
 			// Because default address is not correct in app, in BG, it keeps connect / disconnect
@@ -820,8 +817,8 @@ cBleEventHandler.prototype = {
 
 			} else {
 				// For ios, we need this. 
-				callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected. Reconnecting...');
-				callViewHandler.display_tester_deviceStatus('Disconnected. Reconnecting...');
+				vBLE.ble_status_msg('#BLE-Status', 'Disconnected. Reconnecting...');
+				vBLE.display_tester_deviceStatus('Disconnected. Reconnecting...');
 
 				t.wait_then_connect(deviceObj);
 			}
@@ -829,8 +826,8 @@ cBleEventHandler.prototype = {
 		} else {
 
 			// For ios, we need this. 
-			callViewHandler.ble_status_msg('#BLE-Status', 'Disconnected. Reconnecting...');
-			callViewHandler.display_tester_deviceStatus('Disconnected. Reconnecting...');
+			vBLE.ble_status_msg('#BLE-Status', 'Disconnected. Reconnecting...');
+			vBLE.display_tester_deviceStatus('Disconnected. Reconnecting...');
 
 			t.wait_then_connect(deviceObj);
 
@@ -846,21 +843,21 @@ cBleEventHandler.prototype = {
 		clearTimeout(t.wait_then_connect_interval);
 
 		var waitForDisconnectionTime = 6000; 
-		if(appBGFG == 7) {
+		if(mApp.checkAppStatus('BG')) {
 			// in BG, iOS should wait shorter because otherwise app gets suspended. (~4000 ms)
 			// Android should wait longer because otherwise ble functions get ruined with error 257
 			// (Unable to scan, connect, etc)
 			if(myApp.device.os === 'android' || myApp.device.os === 'Android') waitForDisconnectionTime = 6000;  
-			else waitForDisconnectionTime = 4000; 
+			else waitForDisconnectionTime = 10000; 
 		}	
 		
-		t.disconnectDevice();
+		t.disconnectDevice(deviceObj);
 
 		// Mar.06.2018 - On BG, start connecting to default address,
 		// on FG, start scan for unlimited time until it finds device or certain conditions are met.
 		t.wait_then_connect_interval = setTimeout(() => {
 			clearTimeout(t.wait_then_connect_interval);
-    	if(appBGFG == 7) {
+    	if(mApp.checkAppStatus('BG')) {
 
     		// Apr.17.2018 - If current device name is different, don't connect
     		var defaultDeviceName = localStorage["deviceName"];
@@ -883,7 +880,7 @@ cBleEventHandler.prototype = {
 
 		var t = this;
 
-		t.targetDeviceObj = undefined; // May.03.2018 - Reset completely
+		//t.targetDeviceObj = undefined; // May.03.2018 - Reset completely
 		clearInterval(t.readRealtimeIntervalID);
 		clearInterval(t.subscriptionTestInterval);
 		clearInterval(t.appTimerInterval);
@@ -892,17 +889,18 @@ cBleEventHandler.prototype = {
 		t.initTTBTrackArr = [];	// Mar.21.2018 - calculate TTB
 
 		evothings.ble.stopScan();
-		t.conState.push(t.conStateIndex.DISCONNECTED);
+		t.setConState(t.conStateIndex.DISCONNECTED);
 		if(deviceObj) evothings.ble.close(deviceObj);
 		// Be sure to disconnect default address too. (Somehow it doesn't clear peripheral for default address)
 		if(localStorage["deviceMacAddress"]) evothings.ble.close(JSON.parse(localStorage["deviceMacAddress"]));
 
-		callViewHandler.ble_status_msg('#BLE-Status', 'Disconnecting...');
-		callViewHandler.display_tester_deviceStatus('Disconnected');
-		callViewHandler.display_connected_device_address('');	// Mar.22.2018
+		vBLE.ble_status_msg('#BLE-Status', 'Disconnecting...');
+		vBLE.display_tester_deviceStatus('Disconnected');
+		vBLE.display_connected_device_address('');	// Mar.22.2018
 
-		callViewHandler.display_subscription_disconnectionState()	// June.07.2018 - Display disconnected state on subscription
+		vBLE.display_subscription_disconnectionState()	// June.07.2018 - Display disconnected state on subscription
 		console.log('Disconnecting ');
+		myApp.closeModal();
 		/*
 		cordova.plugins.notification.local.schedule({
 			id: 9,
@@ -921,10 +919,9 @@ cBleEventHandler.prototype = {
 		var t = this;
 
 		t.userState.push(t.userStateIndex.READING);
-		var lastConnectionState = t.conState[t.conState.length - 1]; 
 
 		return new Promise(function(resolve, reject) {
-			if(t.targetDeviceObj && lastConnectionState === t.conStateIndex.CONNECTED) {
+			if(t.targetDeviceObj && t.getConState() === t.conStateIndex.CONNECTED) {
 				evothings.ble.readCharacteristic(t.targetDeviceObj, characteristic, function(data){
 
 					var dataTranslated = t.dataTranslation(data, expectDataType);
@@ -936,7 +933,7 @@ cBleEventHandler.prototype = {
 		    	reject('Error Reading: ' + err);
 		    });
 			} else {
-				reject('[Err Read] No Device info or not connected: [state: ' + lastConnectionState + ']');
+				reject('[Err Read] No Device info or not connected: [state: ' + t.getConState() + ']');
 			}
 		});
 		
@@ -975,14 +972,14 @@ cBleEventHandler.prototype = {
 		var t = this;
 
 		t.userState.push(t.userStateIndex.WRITING);
-		var lastConnectionState = t.conState[t.conState.length - 1]; 
 
 		return new Promise(function(resolve, reject) {
-			if(t.targetDeviceObj && lastConnectionState === t.conStateIndex.CONNECTED) {
+			if(t.targetDeviceObj && t.getConState() === t.conStateIndex.CONNECTED) {
 				evothings.ble.writeCharacteristic(t.targetDeviceObj, characteristic, data, function(){
 
 					console.log('Success Writing: ' + data);
 					t.userState.push(t.userStateIndex.WRITE_DONE + '[' + data + ']');
+
 		      resolve(data);
 
 		    }, function(err){
@@ -1018,11 +1015,11 @@ cBleEventHandler.prototype = {
     .then(function(val){
     	console.log('First Time Connection Data 2: ' + val + ', Data: ' + JSON.stringify(val));
     	t.firstTimeSinceBattery = val;
-      callViewHandler.ble_status_msg('#BLE-Status', 'Time since battery value (2nd Trial): ' + val);
+      vBLE.ble_status_msg('#BLE-Status', 'Time since battery value (2nd Trial): ' + val);
     })
     .catch(function(err){
     	console.log('Error: ' + err);
-    	callViewHandler.ble_status_msg('#BLE-Status', err);
+    	vBLE.ble_status_msg('#BLE-Status', err);
     });
 
 	},
@@ -1030,7 +1027,7 @@ cBleEventHandler.prototype = {
 	/* ===========================================================================
 	Write seconds until midnight
 	=========================================================================== */
-	writeSecondsUntilMidnight: function (maxTrials, rejectIfFails) {
+	writeSecondsUntilMidnight: function (inputValue, maxTrials, rejectIfFails) {
 
 		var t = this;
 		return new Promise(function fcn(resolve, reject){
@@ -1040,28 +1037,12 @@ cBleEventHandler.prototype = {
 	    var service1 = evothings.ble.getService(t.targetDeviceObj, serviceAddress1);
 	    var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);
 
-	    // Get seconds until midnight ======================================================
-	    var currentTime = new Date().getTime();
-	    //var timeDifference = new Date().getTimezoneOffset() * 60;	// to seconds	
-
-	    var midnight = new Date();
-	    midnight.setHours( 24 );
-	    midnight.setMinutes( 0 );
-	    midnight.setSeconds( 0 );
-	    midnight.setMilliseconds( 0 );
-
-	    var secondsUntilMidnight = parseInt((midnight.getTime() - currentTime) / 1000);
-
-	    // For testing, get seconds until next hour
-	    //var nextHour = new Date();
-	    //var nowHour = nextHour.getHours();
-	    //nextHour.setHours( nowHour + 1 );
-	    // =================================================================================
+	 
 	   
-			console.log('Writing Midnight: ' + secondsUntilMidnight);
-			callViewHandler.ble_status_msg('#BLE-Status', 'Writing Midnight... ' + secondsUntilMidnight);
+			console.log('Writing Midnight: ' + inputValue);
+			vBLE.ble_status_msg('#BLE-Status', 'Writing Midnight... ' + inputValue);
 
-			t.writeValue(characteristics1, new Uint32Array([secondsUntilMidnight]))
+			t.writeValue(characteristics1, new Uint32Array([inputValue]))
 			.then(() => { resolve(true); })
 			.catch(() => {
 				if(--maxTrials > 0) {
@@ -1078,7 +1059,7 @@ cBleEventHandler.prototype = {
 
 	// Feb.02.2018 - sunset: 'upcoming' seconds until midnight, sunrise: 'upcoming' seconds from midnight
 	// Feb.05.2018 - Ignore sunrise. Sunset: upcoming from current time.
-	writeSecondsUntilSunTime: function (whichOne, maxTrials, rejectIfFails) {	// 0 - sunrise, 1 - sunset
+	writeSecondsUntilSunTime: function (inputValue, whichOne, maxTrials, rejectIfFails) {	// 0 - sunrise, 1 - sunset
 		var t = this;
 
 		return new Promise(function fcn(resolve, reject){
@@ -1090,51 +1071,6 @@ cBleEventHandler.prototype = {
 	    var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);
 	    var characteristics2 = evothings.ble.getCharacteristic(service1, characteristicsAddress2);
 
-	    var weatherData = callWeatherHandler.currentWeatherData;	// data from weather api in String
-
-	    var secondsForSunrise = 0;
-		  var secondsForSunset = 0;
-
-	    if(weatherData) {
-
-	    	weatherData = JSON.parse(weatherData);
-
-	    	//console.log('Checking for suntime today: ' + weatherData['daily']['data'][0]['sunriseTime'] + ', ' + weatherData['daily']['data'][0]['sunsetTime']);
-
-		    // ======================================================================
-				// Seconds until midnight and midnight in epoch
-				var currentTime = parseInt(new Date().getTime() / 1000);	// in seconds
-
-		    var midnight = new Date();
-		    midnight.setHours( 24 );
-		    midnight.setMinutes( 0 );
-		    midnight.setSeconds( 0 );
-		    midnight.setMilliseconds( 0 );
-
-		    var midnightEpoch = parseInt(midnight.getTime() / 1000);
-		    var midnightEpochYesterday = midnightEpoch - 86400;
-		    var secondsUntilMidnight = midnightEpoch - currentTime;
-		    var sunriseToday = weatherData['daily']['data'][0]['sunriseTime'];
-		    var sunsetToday = weatherData['daily']['data'][0]['sunsetTime'];
-		    var sunriseTomorrow = weatherData['daily']['data'][1]['sunriseTime'];
-		    var sunsetTomorrow = weatherData['daily']['data'][1]['sunsetTime'];
-		    // ======================================================================
-
-		    // Feb.06.2018 - sunset from midnight, sunrise from midnight
-		    if(currentTime < sunsetToday) secondsForSunset = sunsetToday - midnightEpochYesterday;	// yesterday's midnight until today sunset
-		    else secondsForSunset = sunsetTomorrow - midnightEpoch;				// today midnight until tomorrow sunset
-
-		    if(currentTime < sunriseToday) secondsForSunrise = sunriseToday - midnightEpochYesterday;
-		    else secondsForSunrise = sunriseTomorrow - midnightEpoch;
-		 		
-		 		console.log('Now: ' + currentTime + ', Sunrise: ' + sunriseToday + ', Sunset: ' + sunsetToday);
-
-	    } else {
-	    	console.log('Weather Data Not exist...!!!!!!!');
-	    }
-
-	    console.log('Writing '+ ((whichOne == 0) ? 'Sunrise' : 'Sunset') + ': ' + ((whichOne == 0) ? secondsForSunrise : secondsForSunset));
-	    
 
 	    var writeFailed = function () {
 	    	if(--maxTrials > 0) {
@@ -1147,13 +1083,13 @@ cBleEventHandler.prototype = {
 	    }
 
 	    if(whichOne == 0) {
-	    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing Sunrise... ' + secondsForSunrise);
-	    	t.writeValue(characteristics1, new Uint32Array([secondsForSunrise]))
+	    	vBLE.ble_status_msg('#BLE-Status', 'Writing Sunrise... ' + inputValue);
+	    	t.writeValue(characteristics1, new Uint32Array([inputValue]))
 	    	.then(() => { resolve(true); })
 	    	.catch(writeFailed);
 	    } else {
-	    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing Sunset... ' + secondsForSunset);
-	    	t.writeValue(characteristics2, new Uint32Array([secondsForSunset]))
+	    	vBLE.ble_status_msg('#BLE-Status', 'Writing Sunset... ' + inputValue);
+	    	t.writeValue(characteristics2, new Uint32Array([inputValue]))
 	    	.then(() => { resolve(true); })
 	    	.catch(writeFailed);
 	    }
@@ -1165,7 +1101,7 @@ cBleEventHandler.prototype = {
 	/* ===========================================================================
 	Write Time to burn time
 	=========================================================================== */
-	writeTTB: function (maxTrials, rejectIfFails) {
+	writeTTB: function (inputValue, maxTrials, rejectIfFails) {
 		
 		var t = this;
 		return new Promise(function fcn(resolve, reject){
@@ -1175,28 +1111,12 @@ cBleEventHandler.prototype = {
 	    var service1 = evothings.ble.getService(t.targetDeviceObj, serviceAddress1);
 	    var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);
 
-	    var inputVal = $$('.content-block').find('input[name="inputTime"]').val();
-
-	    // Get TTB ======================================================
-	    if(isNaN(inputVal) || !inputVal) {
-	      // calculate
-	      if(t.currentEnvironment !== undefined && t.currentSkintype !== undefined) {
-
-	        inputVal = t.calcWriteTTBValue(t.currentSkintype, t.currentEnvironment);
-
-	      } else {
-	        inputVal = 60;
-	      }
-	    } else {
-	      inputVal = Number(inputVal);
-	    }
-	    // =================================================================================
 	    
-	    console.log('Writing TTB: ' + parseInt(inputVal * 60));
-	    callViewHandler.ble_status_msg('#BLE-Status', 'Write TTB... ' + parseInt(inputVal * 60));
-	    callViewHandler.display_ttb_written(parseInt(inputVal * 60));
+	    console.log('Writing TTB: ' + inputValue);
+	    vBLE.ble_status_msg('#BLE-Status', 'Write TTB... ' + inputValue);
+	    vBLE.display_ttb_written(inputValue);
 
-	    t.writeValue(characteristics1, new Uint32Array([parseInt(inputVal * 60)]))
+	    t.writeValue(characteristics1, new Uint32Array([inputValue]))
 	    .then(() => { resolve(true); })
 	    .catch(() => { 
 	    	if (--maxTrials > 0) {
@@ -1341,7 +1261,7 @@ cBleEventHandler.prototype = {
 				char17Val = val;
 				
 				
-				callViewHandler.display_realtimeResult(char1Val, char2Val, char3Val, char4Val,
+				vBLE.display_realtimeResult(char1Val, char2Val, char3Val, char4Val,
 																							char5Val, char6Val, char7Val, char8Val, 
 																							char9Val, char11Val, char12Val, char13Val, 
 																							char14Val, char15Val, char16Val, char17Val);
@@ -1354,12 +1274,12 @@ cBleEventHandler.prototype = {
 					voltage: char12Val
 				});
 
-				callViewHandler.display_batteryData();
+				vBLE.display_batteryData();
 
 			})
 			.catch(function(err){
 				console.log('Stopping Realtime Reading...');
-				callViewHandler.ble_status_msg('#BLE-Status', 'Error in realtime reading ' + err);
+				vBLE.ble_status_msg('#BLE-Status', 'Error in realtime reading ' + err);
 				
 				clearInterval(t.readRealtimeIntervalID);
 
@@ -1407,7 +1327,7 @@ cBleEventHandler.prototype = {
 	   	
 	   	if(val == 7 || val == 8 || val == 9 || val == 10) {
 	   		console.log('Writing: ' + val);
-	   		callViewHandler.ble_status_msg('#BLE-Status', 'Writing FG/BG... ' + val);
+	   		vBLE.ble_status_msg('#BLE-Status', 'Writing FG/BG... ' + val);
 	   	}
 
 	    t.writeValue(characteristics1, new Uint32Array([val]))
@@ -1442,11 +1362,11 @@ cBleEventHandler.prototype = {
     t.writeValue(characteristics1, new Uint32Array([1]))
     .then(function(){
     	console.log('OTA done: ');
-    	callViewHandler.ble_status_msg('#BLE-Status', 'Initiating OTA...');
+    	vBLE.ble_status_msg('#BLE-Status', 'Initiating OTA...');
     })
     .catch(function(err){
     	console.log('Error: ' + err);
-    	callViewHandler.ble_status_msg('#BLE-Status', err);
+    	vBLE.ble_status_msg('#BLE-Status', err);
     });
 	},
 
@@ -1522,7 +1442,7 @@ cBleEventHandler.prototype = {
           voltage: dataArr[4]
         });
 
-        callViewHandler.display_reading_notificationData(dataCounter, data, dataArr[0], dataArr[1], dataArr[2], dataArr[3], dataArr[4]);
+        vBLE.display_reading_notificationData(dataCounter, data, dataArr[0], dataArr[1], dataArr[2], dataArr[3], dataArr[4]);
         
         dataCounter++;
 
@@ -1657,12 +1577,12 @@ cBleEventHandler.prototype = {
 
     t.writeValue(characteristics1, new Uint32Array([userInputUV]))
     .then(function(){
-    	callViewHandler.ble_status_msg('#BLE-Status', 'Change UV: ' + userInputUV);
-    	callViewHandler.display_uvChange(userInputUV);
+    	vBLE.ble_status_msg('#BLE-Status', 'Change UV: ' + userInputUV);
+    	vBLE.display_uvChange(userInputUV);
     })
     .catch(function(err){
     	console.log('Error: ' + err);
-    	callViewHandler.ble_status_msg('#BLE-Status', err);
+    	vBLE.ble_status_msg('#BLE-Status', err);
     });
 
 	},
@@ -1729,6 +1649,7 @@ cBleEventHandler.prototype = {
 			
 		}, function(err){
       console.log('Error in subscription characteristics1: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [UV]: ' + err);
     });
   	
   	// ================================================================================
@@ -1752,6 +1673,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error in subscription characteristics2: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [Temperature]: ' + err);
     });
 
     // ================================================================================
@@ -1774,6 +1696,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error in subscription characteristics3: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [Battery]: ' + err);
     });
 
     // ================================================================================
@@ -1876,6 +1799,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error in subscription characteristics4: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [TTB]: ' + err);
     });
 
     // ================================================================================
@@ -1923,6 +1847,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error in subscription characteristics5: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [Sunscreen]: ' + err);
     });
 
     // ================================================================================
@@ -1945,9 +1870,9 @@ cBleEventHandler.prototype = {
 					localStorage["deviceMacAddress"] = JSON.stringify(t.targetDeviceObj);	// save current one.
 
 					localStorage["deviceName"] = t.getDeviceName(t.targetDeviceObj);
-					callViewHandler.display_deviceName(t.getDeviceName(t.targetDeviceObj));
+					vBLE.display_deviceName(t.getDeviceName(t.targetDeviceObj));
 	
-					callViewHandler.display_saved_device_address(t.targetDeviceObj.address);
+					vBLE.display_saved_device_address(t.targetDeviceObj.address);
 					
 				}
 			}
@@ -1959,6 +1884,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error in subscription characteristics6: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [First Time]: ' + err);
     });
 
     // ================================================================================
@@ -1985,6 +1911,7 @@ cBleEventHandler.prototype = {
 
 		}, function(err){
       console.log('Error in subscription characteristics7: ' + err);
+      vBLE.ble_status_msg('#BLE-Status', 'Error in Subscription [Device Shaken]: ' + err);
     });
 
     t.displaySubscription();		// run interval
@@ -2008,7 +1935,7 @@ cBleEventHandler.prototype = {
 
     		if(t.subscriptionDataArrCurr.length !== t.subscriptionDataArrPrev.length) {
 
-    			callViewHandler.display_subscription(t.subscriptionDataArrCurr);
+    			vBLE.display_subscription(t.subscriptionDataArrCurr);
     			t.subscriptionDataArrPrev = t.subscriptionDataArrCurr.slice();
     			t.subscriptionDataArrCurr = [];
 
@@ -2018,7 +1945,7 @@ cBleEventHandler.prototype = {
     			if(!(JSON.stringify(t.subscriptionDataArrCurr) === JSON.stringify(t.subscriptionDataArrPrev))) {
 
     				t.userState.push(t.userStateIndex.SUB_DONE);
-    				callViewHandler.display_subscription(t.subscriptionDataArrCurr);
+    				vBLE.display_subscription(t.subscriptionDataArrCurr);
     				t.subscriptionDataArrPrev = t.subscriptionDataArrCurr.slice();
     				t.subscriptionDataArrCurr = [];
 
@@ -2047,19 +1974,17 @@ cBleEventHandler.prototype = {
 	},
 
 	// Feb.21.2018 - Instead of paring, trying custom password
-	startEnteringPassword: function (maxTrials, rejectIfFails) {
+	startEnteringPassword: function (inputValue, maxTrials, rejectIfFails) {
 		var t = this;
 
 		return new Promise(function fcn(resolve, reject){
 			var serviceAddress1 = t.customPassword_service;
 	    var characteristicsAddress1 = t.customPassword_char;
 
-	    console.log('Writing for Password...');
-
 	    var service1 = evothings.ble.getService(t.targetDeviceObj, serviceAddress1);
 	    var characteristics1 = evothings.ble.getCharacteristic(service1, characteristicsAddress1);
 	   
-	    t.writeValue(characteristics1, new Uint32Array([t.userPassword]))
+	    t.writeValue(characteristics1, new Uint32Array([inputValue]))
 	    .then(() => { resolve(true); })
 	    .catch(() => { 
 	    	console.log('[Writing Test] startEnteringPassword failed...Trying again...');
@@ -2171,7 +2096,22 @@ cBleEventHandler.prototype = {
 	// This is value for 'Writing to the device'. Device is using this value
 	calcWriteTTBValue: function (skin, env) {
 		var t = this;
-		return t.getSkinValue(skin) / (1 + t.getEnvValue(env));
+
+		var inputVal = $$('.content-block').find('input[name="inputTime"]').val();
+    if(isNaN(inputVal) || !inputVal) {
+      // calculate
+      if(env !== undefined && skin !== undefined) {
+
+        inputVal = t.getSkinValue(skin) / (1 + t.getEnvValue(env));
+
+      } else {
+        inputVal = 60;
+      }
+    } else {
+      inputVal = Number(inputVal);
+    }
+
+    return parseInt(inputVal * 60);
 	},
 
 	saveSkinEnv: function () {
@@ -2197,92 +2137,198 @@ cBleEventHandler.prototype = {
 	/* ===========================================================================
 	Mar.14.2018 - Group of init process after connected
 	in Background, try not read or write. Because after 'startReset', it'll disconnect from device anyway.
+	
 	June.01.2018 - Keep trying until one is done. But if too many failures, stop all. 
 	Reference: https://stackoverflow.com/questions/40047774/repeat-a-promise-until-its-not-rejected-or-reach-a-timeout
+
+	June.21.2018 - Rework. Be sure that all data is there before start. If variables are not good, don't write and disconnect
 	=========================================================================== */
-	initAfterConnected: function () {
+	checkVariablesBeforeWrite: function () {
 		var t = this;
+		return new Promise((resolve, reject) => {
+			let newObj = {}
+
+			if(!t.userPassword) reject('Password does not exist'); // Device Password
+			else {
+				newObj.userPassword = t.userPassword;
+			}
+
+			// Get seconds until midnight ======================================================
+	    var currentTime = new Date().getTime();
+	    //var timeDifference = new Date().getTimezoneOffset() * 60;	// to seconds	
+
+	    var midnight = new Date(); 
+	    midnight.setHours( 24 ); midnight.setMinutes( 0 ); midnight.setSeconds( 0 ); midnight.setMilliseconds( 0 );
+
+	    var secondsUntilMidnight = parseInt((midnight.getTime() - currentTime) / 1000);
+
+	    if(!secondsUntilMidnight || secondsUntilMidnight <= 0) reject('Seconds until midnight value is wrong: ' + secondsUntilMidnight);
+	    else {
+	    	newObj.secondsUntilMidnight = secondsUntilMidnight;
+	    }
+	    // =================================================================================
+
+	    // Get TTB ========================================================================
+	    var inputVal = t.calcWriteTTBValue(t.currentSkintype, t.currentEnvironment);
+
+	    if(!inputVal || inputVal <= 0) reject('TTB value is incorrect: ' + inputVal);
+	    else {
+	    	newObj.ttb = inputVal;
+	    }
+	    // =================================================================================
+
+	    // Get Suntime =====================================================================
+	    var weatherData = callWeatherHandler.currentWeatherData;	// data from weather api in String
+	    var secondsForSunrise = 0;
+		  var secondsForSunset = 0;
+
+	    if(weatherData) {
+
+	    	weatherData = JSON.parse(weatherData);
+
+	    	//console.log('Checking for suntime today: ' + weatherData['daily']['data'][0]['sunriseTime'] + ', ' + weatherData['daily']['data'][0]['sunsetTime']);
+
+		    // ======================================================================
+				// Seconds until midnight and midnight in epoch
+				var currentTime = parseInt(new Date().getTime() / 1000);	// in seconds
+
+		    var midnight = new Date();
+		    midnight.setHours( 24 );
+		    midnight.setMinutes( 0 );
+		    midnight.setSeconds( 0 );
+		    midnight.setMilliseconds( 0 );
+
+		    var midnightEpoch = parseInt(midnight.getTime() / 1000);
+		    var midnightEpochYesterday = midnightEpoch - 86400;
+		    var secondsUntilMidnight = midnightEpoch - currentTime;
+		    var sunriseToday = weatherData['daily']['data'][0]['sunriseTime'];
+		    var sunsetToday = weatherData['daily']['data'][0]['sunsetTime'];
+		    var sunriseTomorrow = weatherData['daily']['data'][1]['sunriseTime'];
+		    var sunsetTomorrow = weatherData['daily']['data'][1]['sunsetTime'];
+		    // ======================================================================
+
+		    // Feb.06.2018 - sunset from midnight, sunrise from midnight
+		    if(currentTime < sunsetToday) secondsForSunset = sunsetToday - midnightEpochYesterday;	// yesterday's midnight until today sunset
+		    else secondsForSunset = sunsetTomorrow - midnightEpoch;				// today midnight until tomorrow sunset
+
+		    if(currentTime < sunriseToday) secondsForSunrise = sunriseToday - midnightEpochYesterday;
+		    else secondsForSunrise = sunriseTomorrow - midnightEpoch;
+		 		
+		 		console.log('Now: ' + currentTime + ', Sunrise: ' + sunriseToday + ', Sunset: ' + sunsetToday);
+
+		 		if(!secondsForSunset || secondsForSunset <= 0) reject('secondsForSunset is invalid: ' + secondsForSunset);
+		 		else {
+		 			newObj.secondsForSunset = secondsForSunset;
+		 		}
+
+		 		if(!secondsForSunrise || secondsForSunrise <= 0) reject('secondsForSunrise is invalid: ' + secondsForSunrise);
+		 		else {
+		 			newObj.secondsForSunrise = secondsForSunrise;
+		 		}
+
+	    } else {
+	    	reject('Weather Data Not exist');
+	    }
+	    // =================================================================================
+			
+			resolve(newObj);
+
+		});
+	},
+
+	initAfterConnected: async function () {
+		var t = this;
+
+		let logText = '';		// June.27.2018 - To display all at once
 
 		t.userState.push(t.userStateIndex.ENTER_PASSWORD);
 		evothings.ble.stopScan();
 
+		// June.27.2018 - Counter Number of writes are done and display
+		t.writeCounter = 0;		// Clear before start
 
-		t.startEnteringPassword(3, true)			// Number of trials and action when fails
-		.then(() => {
+		// June.21.2018 - Divided into FG, BG cases. 
+		try {
+		
+			let resObj = await t.checkVariablesBeforeWrite();
+
+			console.log('\n\nCheck Before Start Writing Done: \n' + JSON.stringify(resObj));
+			logText += '<br>[1] Check Variables Done';
+			
+			await t.startEnteringPassword(resObj.userPassword, 3, true);
+			t.writeCounter++;
+
 			console.log('Writing password Done...');
     	t.userState.push(t.userStateIndex.ENTER_PASSWORD_DONE);
-    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing password Done: ' + t.userPassword);
-    	
-    	t.startSubscription(); 
+    	logText += ('<br>[2] Writing password Done: ' + t.userPassword);
+   
+    	t.startSubscription();
 
     	t.userState.push(t.userStateIndex.SIGNAL_FG);
+    	await t.startReset(mApp.getAppStatus(), 3, true);
+    	t.writeCounter++;
 
-    	if(myApp.device.os === 'android' || myApp.device.os === 'Android') {
-    		return t.startReset(10, 3, true);
-    	} else {
-    		return t.startReset(appBGFG, 3, true);
-    	}
-			
-		})
-		.then(() => {
-			console.log('Writing FG/BG Done...');
+    	console.log('Writing FG/BG Done...');
 			t.userState.push(t.userStateIndex.SIGNAL_FG_DONE);
-    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing FG/BG Done');
+			logText += ('<br>[3] Writing FG/BG Done: ' + mApp.getAppStatus());
+    
+    	if(mApp.checkAppStatus('FG')) {
 
-			if(appBGFG == 8) {
-				t.runAppTimer();		// Mar.16.2018 - Start Timer
-				return t.writeSecondsUntilMidnight(3, true);
-			}
-			else return true;
-		})
-		.then(() => {
+    		t.runAppTimer();		// Mar.16.2018 - Start Timer
+    		await t.writeSecondsUntilMidnight(resObj.secondsUntilMidnight, 3, true);
+    		t.writeCounter++;
 
-			if(appBGFG == 8) {
-				console.log('Writing Midnight done...');
-	    	callViewHandler.ble_status_msg('#BLE-Status', 'Write Seconds until midnight done');
+    		console.log('Writing Midnight done...');
+	    	logText += ('<br>[4] Write Midnight Done: ' + resObj.secondsUntilMidnight);
 
-				return t.writeTTB(3, true);
-			} else return true;
-			
-		})
-		.then(() => {
+	    	await t.writeTTB(resObj.ttb, 3, true);
+	    	t.writeCounter++;
 
-			if(appBGFG == 8) {
-				console.log('Writing TTB done...');
-	    	callViewHandler.ble_status_msg('#BLE-Status', 'Write TTB done');
+	    	console.log('Writing TTB done...');
+	    	logText += ('<br>[5] Write TTB Done: ' + resObj.ttb);
 
-				return t.writeSecondsUntilSunTime(1, 3, true);	// sunset
-			} else return true;
-			
-		})
-		.then(() => {
+				await t.writeSecondsUntilSunTime(resObj.secondsForSunset, 1, 3, true);	// sunset
+				t.writeCounter++;
 
-			if(appBGFG == 8) {
 				console.log('Writing Sunset done...');
-	    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing Sunset done');
+				logText += ('<br>[6] Writing Sunset Done: ' + resObj.secondsForSunset);
 
-				return t.writeSecondsUntilSunTime(0, 3, true); // sunrise
-			} else return true;
-			
-		})
-		.then(() => {
+				await t.writeSecondsUntilSunTime(resObj.secondsForSunrise, 0, 3, true); // sunrise
+				t.writeCounter++;
 
-			if(appBGFG == 8) {
 				console.log('Writing Sunrise done...');
-	    	callViewHandler.ble_status_msg('#BLE-Status', 'Writing Sunrise done');
+				logText += ('<br>[7] Writing Sunrise Done: ' + resObj.secondsForSunrise);
 
-	    	//t.checkFirstTimeSinceBattery();
-	    	//t.startReadRealtime();
+				vBLE.ble_status_msg('#BLE-Status', 'Result of Init Writing' + logText);
+				vBLE.display_writeCounter();
 
-	    	//t.writingTest();		// May.03.2018 - only for testing
+    	} else {
+    		vBLE.ble_status_msg('#BLE-Status', 'Result of Init Writing' + logText);
+    		vBLE.display_writeCounter();
+    	}
 
-			} else return true;
-			
-		})
-		.catch(function(err){
-    	console.log('Error: ' + err);
-    	callViewHandler.ble_status_msg('#BLE-Status', err);
-    });
+		} catch(e) {
+
+			vBLE.ble_status_msg('#BLE-Status', 'Result of Init Writing' + logText);
+			vBLE.display_writeCounter();
+
+			if(t.targetDeviceObj) {
+				t.disconnectDevice(t.targetDeviceObj);
+      }
+
+			myApp.modal({
+        title: 'Error checking variables',
+        text: e,
+        verticalButtons: true,
+        buttons: [
+        {
+          text: 'Ok'
+        }
+        ]
+      });
+
+		}
+
 
 	},
 
@@ -2326,13 +2372,13 @@ cBleEventHandler.prototype = {
 						}
 		    	}
 		    	
-					callViewHandler.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
+					vBLE.display_appTimer(t.ttb_fromDevice, t.ss_fromDevice);
 
 		    } else {
 		    	// Night time. 
 		    	console.log('[App Timer] It\'s night time');
 		    	clearInterval(t.appTimerInterval);
-		    	callViewHandler.display_appTimer(0, 0);
+		    	vBLE.display_appTimer(0, 0);
 		    }
 
 			}, 1000);	
@@ -2374,9 +2420,8 @@ cBleEventHandler.prototype = {
 	checkDeviceCalculate: function () {
 		var t = this;	
 
-		var lastConnectionState = t.conState[t.conState.length - 1]; 
 		//console.log('Check Device Calculation Status: ' + lastConnectionState + ', SHK: ' + t.deviceShaken + ', SS: ' + t.ss_fromDevice + ', TTB: ' + t.ttb_fromDevice);
-		if(t.targetDeviceObj && lastConnectionState === t.conStateIndex.CONNECTED) {
+		if(t.targetDeviceObj && t.getConState() === t.conStateIndex.CONNECTED) {
 
 			if(t.deviceShaken == 0 || t.deviceShaken == 2) return false;
 			else if(t.ss_fromDevice > 0) return false;
